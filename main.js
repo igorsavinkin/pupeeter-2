@@ -1,5 +1,9 @@
 const Apify = require('apify');
-
+// let's login to xing
+require('./login-xing.js');
+login();
+//process.exit();
+/*
 Apify.main(async () => {
     const requestQueue = await Apify.openRequestQueue();
     await requestQueue.addRequest({ url: 'https://www.iana.org/' });
@@ -24,3 +28,4 @@ Apify.main(async () => {
 
     await crawler.run();
 });
+*/
