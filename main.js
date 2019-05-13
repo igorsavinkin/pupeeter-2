@@ -1,7 +1,17 @@
 const Apify = require('apify');
+const puppeteer = require('puppeteer');
 // let's login to xing
 require('./login-xing.js');
-login();
+
+page = loginSync(0);
+
+/*const browser = puppeteer.launch({
+		headless: false, // make it with screen
+		slowMo: 100        // slow down by ms.
+		});
+	const page = browser.newPage();*/
+//set_cookie(page);
+
 //process.exit();
 /*
 Apify.main(async () => {
