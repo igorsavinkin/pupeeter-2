@@ -1,6 +1,6 @@
 // solution https://stackoverflow.com/a/50078167/1230477
 const config = require('./config.js');;
-console.log('CREDS: ', config.CREDS);
+//console.log('CREDS: ', config.CREDS);
 const puppeteer = require('puppeteer');
 const path = require('path');
 
@@ -41,7 +41,9 @@ function loginSync(close_browser=1) {
 	} else {
 		return page;
 	}              	
-}
+} 
+
+//loginSync(0);
 
 async function login(close_browser=1) {
 	const browser = await puppeteer.launch({
@@ -87,6 +89,7 @@ async function login(close_browser=1) {
 
 const jsonfile = require('jsonfile');
 const fs = require('fs');
+
 function set_cookie(page) {
 	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
 	console.log('cookiesFilePath:', cookiesFilePath);

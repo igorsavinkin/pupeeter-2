@@ -3,7 +3,23 @@ const puppeteer = require('puppeteer');
 // let's login to xing
 require('./login-xing.js');
 
-page = loginSync(0);
+/*Promise.all([
+	page = login(0)	 
+]).catch(e => console.log('Login error:', e));
+*/
+
+new Promise((resolve, reject) => {
+    page = login(0).then(function (page) {
+		console.log('Page object inside promise:');
+		console.log(page);
+		console.log('\n******************************\nSettingSetting cookie...');
+		//set_cookie(page);
+	},
+  )}
+);
+//console.log('Page object after the promise:', page);
+//console.log(page);
+//page = loginSync(0);
 
 /*const browser = puppeteer.launch({
 		headless: false, // make it with screen
