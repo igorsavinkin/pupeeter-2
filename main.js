@@ -3,40 +3,37 @@ const puppeteer = require('puppeteer');
 // let's login to xing
 require('./login-xing.js');
 
-/*Promise.all([
-	page = login(0)	 
-]).catch(e => console.log('Login error:', e));
-*/
-
-new Promise((resolve, reject) => {
-    page = login(0).then(function (page) {
-		console.log('Page object inside promise:');
-		console.log(page);
-		console.log('\n******************************\nSettingSetting cookie...');
-		//set_cookie(page);
-	},
-  )}
-);
-//console.log('Page object after the promise:', page);
-//console.log(page);
-//page = loginSync(0);
-
-/*const browser = puppeteer.launch({
-		headless: false, // make it with screen
-		slowMo: 100        // slow down by ms.
-		});
-	const page = browser.newPage();*/
-//set_cookie(page);
+/*puppeteer.launch({headless: false, sloMo: 500 }).then(browser => {
+	login_by_cookie_sync(browser, 1); // 0 - do not close browser
+});*/
 
 //process.exit();
-/*
-Apify.main(async () => {
+
+Apify.main(async () => { 
+	await login(); // we do init login and save cookie	
+	//var login_flag=false; 
     const requestQueue = await Apify.openRequestQueue();
-    await requestQueue.addRequest({ url: 'https://www.iana.org/' });
-    const pseudoUrls = [new Apify.PseudoUrl('https://www.iana.org/[.*]')];
+    //requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1' });
+    requestQueue.addRequest({ url: 'https://www.xing.com/companies' });
+	//console.log('Request Queue:', requestQueue);
+    const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
 
     const crawler = new Apify.PuppeteerCrawler({
-        requestQueue,
+        requestQueue, 
+		launchPuppeteerOptions: { slowMo: 100 } , 
+		gotoFunction: async ({ request, page }) => { 			
+			try { 
+			    console.log('\nrequestQueue length (pending):', requestQueue.pendingRequestCount);
+				if (1) { // !login_flag
+					//login_flag = true; 
+					set_cookie(page);
+					page.reload();					
+				}  		
+				await page.goto(request.url, { timeout: 60000 });
+			} catch (error){
+				console.log('\nSetting cookie error:', error);
+			};  
+		},
         handlePageFunction: async ({ request, page }) => {
             const title = await page.title();
             console.log(`Title of ${request.url}: ${title}`);
@@ -48,10 +45,13 @@ Apify.main(async () => {
                 '#debug': Apify.utils.createRequestDebugInfo(request),
             });
         },
-        maxRequestsPerCrawl: 100,
-        maxConcurrency: 10,
+        maxRequestsPerCrawl: 8,
+        maxConcurrency: 2,
     });
 
     await crawler.run();
+	
+	console.log('\nDeleting requestQueue');
+	await requestQueue.delete();
 });
-*/
+/**/
