@@ -4,46 +4,7 @@ const config = require('./config.js');;
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-function loginSync(close_browser=1) {
-	const browser = puppeteer.launch({
-		headless: false, // make it with screen
-		slowMo: 100        // slow down by ms.
-		});
-	const page = browser.newPage();
-	page.setViewport({width: 600, height: 600});
-	page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
-	page.type('input[name="login_form[username]"]', config.CREDS.username);
-	page.type('input[name="login_form[password]"]', config.CREDS.password);
-	page.evaluate(() => { 
-		document.getElementsByTagName('button')[1].click();
-	}),
-	page.waitForNavigation({ waitUntil: 'networkidle0' }),
-	
-	// Save Session Cookies - https://stackoverflow.com/a/48998450/1230477
-	// and https://stackoverflow.com/a/54227598/1230477
-	cookiesObject = page.cookies();
-	jsonfile = require('jsonfile');
-	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
-	console.log('cookiesFilePath:', cookiesFilePath);
-	
-	// Write cookies to config.cookieFile to be used in other profile sessions.
-	jsonfile.writeFile(cookiesFilePath, cookiesObject, { spaces: 2 },
-		function(err) { 
-			if (err){
-				console.log('Failure!\nThe json session file could not be written.', err);
-			} else {
-				console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
-			}
-		});
-	if (close_browser) {
-		browser.close();
-		return 0;
-	} else {
-		return page;
-	}              	
-} 
 
-//loginSync(0);
 
 async function login(close_browser=1) {
 	const browser = await puppeteer.launch({
