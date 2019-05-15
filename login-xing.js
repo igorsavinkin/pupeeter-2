@@ -103,7 +103,7 @@ function set_cookie(page) {
 				console.log("error:", error); 
 			}			
 		}
-		console.log(' *** Session has been loaded in the browser. ***');
+		console.log(' * Session has been loaded in the browser. *');
 		return true;
 	  } else {
 		  console.log('CookiesArr file length is 0.');
