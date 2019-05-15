@@ -1,37 +1,31 @@
 const Apify = require('apify');
 const puppeteer = require('puppeteer');
-// let's login to xing
 require('./login-xing.js');
 
 /*puppeteer.launch({headless: false, sloMo: 500 }).then(browser => {
 	login_by_cookie_sync(browser, 1); // 0 - do not close browser
 });*/
 
-//process.exit();
-
 Apify.main(async () => { 
-	await login(); // we do init login and save cookie	
-	//var login_flag=false; 
-    const requestQueue = await Apify.openRequestQueue();
-    //requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1' });
+	//await login(); // we do init login and save cookie	
+	var login_flag = false; 
+    const requestQueue = await Apify.openRequestQueue(); 
     requestQueue.addRequest({ url: 'https://www.xing.com/companies' });
 	//console.log('Request Queue:', requestQueue);
     const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
 
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
-		launchPuppeteerOptions: { slowMo: 100 } , 
+		launchPuppeteerOptions: { slowMo: 70 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
-			    console.log('\nrequestQueue length (pending):', requestQueue.pendingRequestCount);
-				if (1) { // !login_flag
-					//login_flag = true; 
-					set_cookie(page);
-					page.reload();					
-				}  		
+			    if (!login_flag) { // we login at the first request 
+					login_flag = true;  
+					await login_page(page);					
+				} 				
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
-				console.log('\nSetting cookie error:', error);
+				console.log('\nPage request error:', error);
 			};  
 		},
         handlePageFunction: async ({ request, page }) => {
@@ -54,4 +48,3 @@ Apify.main(async () => {
 	console.log('\nDeleting requestQueue');
 	await requestQueue.delete();
 });
-/**/
