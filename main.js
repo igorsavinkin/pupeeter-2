@@ -2,10 +2,6 @@ const Apify = require('apify');
 const puppeteer = require('puppeteer');
 require('./login-xing.js');
 
-/*puppeteer.launch({headless: false, sloMo: 500 }).then(browser => {
-	login_by_cookie_sync(browser, 1); // 0 - do not close browser
-});*/
-
 Apify.main(async () => { 
 	//await login(); // we do init login and save cookie	
 	var login_flag = false; 
