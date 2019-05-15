@@ -8,7 +8,6 @@ function login_by_cookie_sync(browser, close=0, url='https://www.xing.com'){
 	browser.newPage()
     .then(page => {
       page.goto(url)
-        //.then(buffer => browser.close());
 	    .then( () => set_cookie(page))
 		.then( () => page.reload() )
 		.then( () => { if (close) { browser.close(); } });
@@ -42,10 +41,10 @@ async function login_page(page) {
 		});
 }
 
-async function login(close_browser=1) {
+async function login(close_browser=1, slow_down_ms=50) {
 	const browser = await puppeteer.launch({
-		headless: false, // make it with screen
-		slowMo: 50        // slow down by ms.
+		headless: false,       // make it with screen
+		slowMo: slow_down_ms   // slow down by ms.
 		});
 	const page = await browser.newPage();
 	await page.setViewport({width: 800, height: 700});
