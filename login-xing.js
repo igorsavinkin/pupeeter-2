@@ -29,14 +29,14 @@ async function login_page(page) {
 	const cookiesObject = await page.cookies();
 	const jsonfile = require('jsonfile');
 	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
-	console.log('cookiesFilePath:', cookiesFilePath);
+	//console.log('cookiesFilePath:', cookiesFilePath);
 	// Write cookies to config.cookieFile to be used in other profile sessions.
 	jsonfile.writeFile(cookiesFilePath, cookiesObject, { spaces: 2 },
 		function(err) { 
 			if (err){
 				console.log('Failure!\nThe json session file could not be written.', err);
 			} else {
-				console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
+				//console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
 			}
 		});
 }
@@ -63,7 +63,7 @@ async function login(close_browser=1, slow_down_ms=50) {
 	const cookiesObject = await page.cookies();
 	const jsonfile = require('jsonfile');
 	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
-	console.log('cookiesFilePath:', cookiesFilePath);
+	//console.log('cookiesFilePath:', cookiesFilePath);
 	
 	// Write cookies to config.cookieFile to be used in other profile sessions.
 	jsonfile.writeFile(cookiesFilePath, cookiesObject, { spaces: 2 },
@@ -88,7 +88,7 @@ const fs = require('fs');
 
 function set_cookie(page) {
 	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
-	console.log('cookiesFilePath:', cookiesFilePath);
+	//console.log('cookiesFilePath:', cookiesFilePath);
 	const previousSession = fs.existsSync(cookiesFilePath);
 	if (previousSession) {
 	  const content = fs.readFileSync(cookiesFilePath);
@@ -103,7 +103,7 @@ function set_cookie(page) {
 				console.log("error:", error); 
 			}			
 		}
-		console.log(' * Session has been loaded in the browser. *');
+		//console.log(' * Session has been loaded in the browser. *');
 		return true;
 	  } else {
 		  console.log('CookiesArr file length is 0.');
