@@ -3,6 +3,29 @@ const Apify = require('apify');
 const puppeteer = require('puppeteer');
 require('./login-xing.js');
 process.env.APIFY_LOCAL_STORAGE_DIR="./apify_storage";
+process.env.APIFY_MEMORY_MBYTES = 2000;
+/*
+Done:
+-------------
+1. Company Name - name
+2. Xing Link - url
+3. Adresse (Straße) - street_address
+4. Adresse (PLZ) - post_index
+5. Adresse (Stadt) - city
+6. Adresse (Land)
+*/
+/*
+To Scrape:
+-------------
+Unternehmensgröße
+Branche
+Produkte & Services
+
+
+
+Telefon
+E-Mail
+Website*/
 
 Apify.main(async () => { 
 	//await login(); // we do init login and save cookie	
@@ -16,12 +39,13 @@ Apify.main(async () => {
 
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
-		launchPuppeteerOptions: { slowMo: 70 } , 
+		launchPuppeteerOptions: { slowMo: 5 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login at the first request 
 					login_flag = true;  
-					await login_page(page);					
+					await login_page(page);	
+					//set_cookie();
 				} 				
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
@@ -42,18 +66,46 @@ Apify.main(async () => {
 				var summary_text='';
 				try {
 					var summary_element = await page.$('section.facts'); // section.facts > dl > dd:nth-child(1) 
-					var summary_text = await (await summary_element.getProperty('textContent')).jsonValue();
+					summary_text = await (await summary_element.getProperty('textContent')).jsonValue();
 					//console.log('section.facts: ', summary_text);
 				} catch(error){
 					console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
 				}
 				var contact_text='';
 				try {
-					var contact_element = await page.$('div#contact-info');
-					var contact_text = await (await contact_element.getProperty('textContent')).jsonValue();
+					var contact_element = await page.$('div#contact-info div');
+					contact_text = await (await contact_element.getProperty('textContent')).jsonValue();
 					//console.log('contact info: ', contact_text);
 				} catch(error){
 					console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
+				}
+				var street_address='';
+				try {
+					var street_element = await page.$('div[itemprop="streetAddress"]');
+					street_address = await (await street_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get street address for url: ${request.url}: `, error);
+				}
+				var post_index='';
+				try {
+					var index_element = await page.$('*[itemprop="postalCode"]');
+					post_index = await (await index_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get post index for url: ${request.url}: `, error);
+				}
+				var city='';
+				try {
+					var city_element = await page.$('*[itemprop="addressLocality"]');
+					city = await (await city_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get city for url: ${request.url}: `, error);
+				} 
+				var country='';
+				try {
+					var country_element = await page.$('*[itemprop="addressCountry"]');
+					country = await (await country_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get country for url: ${request.url}: `, error);
 				}
 	// 			await page.evaluate(name_element => name_element.textContent, name_element);
 				console.log(`Company for ${request.url}: ${name_text}`);			 
@@ -62,7 +114,11 @@ Apify.main(async () => {
 					url: request.url,
 					name: company_name,
 					summary : summary_text,
-					contact : contact_text
+					contact : contact_text,
+					street_address: street_address,
+					post_index: post_index,
+					city: city,
+					country: country
 				});
 			}
             await Apify.utils.enqueueLinks({ page, selector: 'a', pseudoUrls, requestQueue });
@@ -79,8 +135,8 @@ Apify.main(async () => {
 
     await crawler.run();
 	
-	//console.log('\nDeleting requestQueue');
-	//await requestQueue.delete();
+	console.log('\nDeleting requestQueue');
+	await requestQueue.delete();
 	
 	console.log('\n******** Results ********');
 	var obj = { companies: [] };	 
