@@ -12,20 +12,20 @@ Done:
 3. Adresse (Straße) - street_address
 4. Adresse (PLZ) - post_index
 5. Adresse (Stadt) - city
-6. Adresse (Land)
+6. Adresse (Land) - country
+7. Telefon - phone
+8. E-Mail  - email
+9. Website - site
+10. Produkte & Services - product_services
+11. Branche - industry
 */
 /*
 To Scrape:
 -------------
 Unternehmensgröße
-Branche
-Produkte & Services
 
 
-
-Telefon
-E-Mail
-Website*/
+*/
 
 Apify.main(async () => { 
 	//await login(); // we do init login and save cookie	
@@ -39,7 +39,7 @@ Apify.main(async () => {
 
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
-		launchPuppeteerOptions: { slowMo: 5 } , 
+		launchPuppeteerOptions: { slowMo: 55 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login at the first request 
@@ -53,13 +53,13 @@ Apify.main(async () => {
 			};  
 		},
         handlePageFunction: async ({ request, page }) => {
-			// company name ;			
+			await page.waitFor(Math.ceil(Math.random() * 2))			
             try {
 				var name_element = await page.$('h1.organization-name');
 				name_text = await (await name_element.getProperty('textContent')).jsonValue();
 				var company_name = name_text.replace(/\s+/g,'\s'); //.replace(/\n/, '\s');
 			} catch(error){
-				console.log(`\nFailure to get organization-name for url: ${request.url}: \n`, error);
+				console.log(`\nFailure to get organization name for url: ${request.url}: \n`, error);
 			}
 			if (company_name) {
 				// section
@@ -70,15 +70,7 @@ Apify.main(async () => {
 					//console.log('section.facts: ', summary_text);
 				} catch(error){
 					console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
-				}
-				var contact_text='';
-				try {
-					var contact_element = await page.$('div#contact-info div');
-					contact_text = await (await contact_element.getProperty('textContent')).jsonValue();
-					//console.log('contact info: ', contact_text);
-				} catch(error){
-					console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
-				}
+				} 
 				var street_address='';
 				try {
 					var street_element = await page.$('div[itemprop="streetAddress"]');
@@ -107,18 +99,45 @@ Apify.main(async () => {
 				} catch(error){
 					console.log(`\nFailure to get country for url: ${request.url}: `, error);
 				}
-	// 			await page.evaluate(name_element => name_element.textContent, name_element);
+				var phone='';
+				try {
+					var phone_element = await page.$('*[itemprop="telephone"]');
+					phone = await (await phone_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get phone number for url: ${request.url}: `, error);
+				} 
+				var email='';
+				try {
+					var email_element = await page.$('a[itemprop="email"]');
+					email = await (await email_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get email for url: ${request.url}: `, error);
+				} 
+				var website='';
+				try {
+					var website_element = await page.$('a[itemprop="url"]');
+					website = await (await website_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get website  for url: ${request.url}: `, error);
+				} 
 				console.log(`Company for ${request.url}: ${name_text}`);			 
-			 
+			    var split1 = summary_text.split("Products and services");
+				var product_services = split1[1];  //summary_text= ;
+				var industry = split1[0].split("Industry")[1];
+				
 				await dataset.pushData({ 
 					url: request.url,
 					name: company_name,
 					summary : summary_text,
-					contact : contact_text,
+					industry: industry,
+					product_services: product_services.replace('/\\n/g', '').replace('/\s+/g','\s'),					
 					street_address: street_address,
 					post_index: post_index,
 					city: city,
-					country: country
+					country: country,
+					phone: phone,
+					email: email,
+					website: website			
 				});
 			}
             await Apify.utils.enqueueLinks({ page, selector: 'a', pseudoUrls, requestQueue });
