@@ -18,14 +18,21 @@ process.env.APIFY_MEMORY_MBYTES = 2000;
 11. Branche - industry
 12. Unternehmensgröße - about_us - turnover
 13. Employes - employees
-*/
-var re_turnover = new RegExp("Umsatz.*?[\d,]+.*?[€$]");
-var re_employees = new RegExp("[\d]+,?[\d]+");
+*/ 
+
+var login_flag = false;
+var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
+var re_employees = new RegExp(/\d+,?\d+/);
 
 Apify.main(async () => { 
-	//await login(); // we do init login and save cookie	
-	var login_flag = false; 
-	var name_text='';
+	//await login(); // we do init login and save cookie
+
+	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
+	const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
+	var concurrency = parseInt( input.concurrency);
+	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
+	var max_requests_per_crawl = parseInt( input.max_requests_per_crawl);
+	
 	const dataset = await Apify.openDataset('scraped-info');	
     const requestQueue = await Apify.openRequestQueue(); 
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/daimlerag'});
@@ -41,7 +48,7 @@ Apify.main(async () => {
 			try { 
 			    if (!login_flag) { // we login at the first request 
 					login_flag = true;  
-					await login_page(page);	  
+					await login_page(page); 	
 				} 				
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
@@ -49,11 +56,12 @@ Apify.main(async () => {
 			};  
 		},
         handlePageFunction: async ({ request, page }) => {
-			await page.waitFor(Math.ceil(Math.random() * 2))			
+			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))
+			var company_name='';
             try {
 				var name_element = await page.$('h1.organization-name');
-				name_text = await (await name_element.getProperty('textContent')).jsonValue();
-				var company_name = name_text; //.replace(/\s+/g,' '); //.replace(/\n/, '\s');
+				company_name = await (await name_element.getProperty('textContent')).jsonValue();
+				var company_name = company_name.trim();  
 			} catch(error){
 				console.log(`\nNo company name in url: ${request.url}:\n`); //, error);
 			}
@@ -84,7 +92,7 @@ Apify.main(async () => {
 				var street_address='';
 				try {
 					var street_element = await page.$('div[itemprop="streetAddress"]');
-					street_address = await (await street_element.getProperty('textContent')).jsonValue();
+					street_address = await (await street_element.getProperty('textContent')).jsonValue(); //.trim();
 				} catch(error){
 					console.log(`\nFailure to get street address for url: ${request.url}: `, error);
 				}
@@ -130,21 +138,19 @@ Apify.main(async () => {
 				} catch(error){
 					console.log(`\nFailure to get website  for url: ${request.url}: `, error);
 				} 
-				console.log(`Company for ${request.url}: ${name_text}`);
+				console.log(`Company for ${request.url}: ${company_name}`);
 				var product_services = '';
 				var industry = '';
 				try {
 					var split1 = summary_text.split("Products and services");
 					if (typeof split1[1] !== 'undefined') {
-						product_services = split1[1].replace('/\\n/g', '').replace('/\s+/g','\s');  
+						product_services = split1[1].trim();  
 					} 				
 					var split2 = split1[0].split("Industry");
 					if (typeof split2[1] !== 'undefined'){
-						industry = split2[1] 
+						industry = split2[1].trim(); 
 					}
 				} catch(e) {
-					product_services = '';
-					industry = '';
 					console.log('Failed to get "product_services" or "industry" fields. \nError:',e);
 				}
 				if (about_us){
@@ -155,14 +161,22 @@ Apify.main(async () => {
 						console.log('No "turnover/Umsatz" found.');
 					}
 				}
+				var employees_num='';
 				if (employees){
-					employees = employees.match(re_employees)[0];
+					try { employees_num = employees.match(re_employees)[0]; 
+					    if (employees_num){
+							employees_num=employees_num.replace(',', '');
+						} 
+					} catch(e){
+						console.log('No employees number found.');
+					}
 				}
+				
 				await dataset.pushData({ 
 					url: request.url,
 					name: company_name,
 					turnover: turnover,
-					employees : employees,
+					employees_num : employees_num,
 					industry: industry,
 					product_services: product_services,					
 					street_address: street_address,
@@ -183,8 +197,8 @@ Apify.main(async () => {
                 '#debug': Apify.utils.createRequestDebugInfo(request),
             });
         },
-        maxRequestsPerCrawl: 2,
-        maxConcurrency: 2,
+        maxRequestsPerCrawl: max_requests_per_crawl,
+        maxConcurrency: concurrency,
     });
 
     await crawler.run();
