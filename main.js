@@ -17,8 +17,11 @@ process.env.APIFY_MEMORY_MBYTES = 2000;
 10. Produkte & Services - product_services
 11. Branche - industry
 12. Unternehmensgröße - about_us - turnover
+13. Employes - employees
 */
 var re_turnover = new RegExp("Umsatz.*?[\d,]+.*?[€$]");
+var re_employees = new RegExp("[\d]+,?[\d]+");
+
 Apify.main(async () => { 
 	//await login(); // we do init login and save cookie	
 	var login_flag = false; 
@@ -50,7 +53,7 @@ Apify.main(async () => {
             try {
 				var name_element = await page.$('h1.organization-name');
 				name_text = await (await name_element.getProperty('textContent')).jsonValue();
-				var company_name = name_text.replace(/\s+/g,'\s'); //.replace(/\n/, '\s');
+				var company_name = name_text; //.replace(/\s+/g,' '); //.replace(/\n/, '\s');
 			} catch(error){
 				console.log(`\nNo company name in url: ${request.url}:\n`); //, error);
 			}
@@ -68,6 +71,13 @@ Apify.main(async () => {
 				try {
 					var about_element = await page.$('div#about-us-content'); 
 					about_us = await (await about_element.getProperty('textContent')).jsonValue();
+				} catch(error){
+					console.log(`\nFailure to get about section for url: ${request.url}: `, error);
+				} 
+				var employees='';
+				try {
+					var employees_element = await page.$('li#employees-tab > a'); 
+					employees = await (await employees_element.getProperty('textContent')).jsonValue();
 				} catch(error){
 					console.log(`\nFailure to get about section for url: ${request.url}: `, error);
 				} 
@@ -145,12 +155,14 @@ Apify.main(async () => {
 						console.log('No "turnover/Umsatz" found.');
 					}
 				}
-				
+				if (employees){
+					employees = employees.match(re_employees)[0];
+				}
 				await dataset.pushData({ 
 					url: request.url,
 					name: company_name,
 					turnover: turnover,
-					//summary : summary_text,
+					employees : employees,
 					industry: industry,
 					product_services: product_services,					
 					street_address: street_address,
