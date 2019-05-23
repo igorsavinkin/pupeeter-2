@@ -1,6 +1,6 @@
 // solution https://stackoverflow.com/a/50078167/1230477
-const config = require('./config.js');
-//console.log('CREDS: ', config.CREDS);
+// const config = require('./config.js');
+// console.log('CREDS: ', config.CREDS);
 const puppeteer = require('puppeteer');
 const path = require('path');
 
