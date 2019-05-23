@@ -4,7 +4,7 @@
 	"description": "Apify actor to get xing info",
 	"main": "main.js",
 	"dependencies": {
-		"apify": "^0.13.3",
+		"apify": "latest",
 		"fs": "0.0.1-security",
 		"if": "^2.0.0"
 	},
