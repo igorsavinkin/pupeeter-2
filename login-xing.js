@@ -1,5 +1,5 @@
 // solution https://stackoverflow.com/a/50078167/1230477
-const config = require('./config.js');;
+const config = require('./config.js');
 //console.log('CREDS: ', config.CREDS);
 const puppeteer = require('puppeteer');
 const path = require('path');
@@ -14,17 +14,24 @@ function login_by_cookie_sync(browser, close=0, url='https://www.xing.com'){
     });	
 }
 
-async function login_page(page) {
+async function login_page(page, username="", password="") {
+	if (!username) { 
+		username = config.CREDS.username;
+		if (!password) { 
+			password = config.CREDS.password;
+		} 
+	}
 	await page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
-	await page.type('input[name="login_form[username]"]', config.CREDS.username);
-	await page.type('input[name="login_form[password]"]', config.CREDS.password);
+	await page.type('input[name="login_form[username]"]', username);
+	await page.type('input[name="login_form[password]"]', password);
 	// click and wait for navigation
 	await Promise.all([
 		page.evaluate(() => {
 			document.getElementsByTagName('button')[1].click();
-		}),
+		}),		
 		page.waitForNavigation({ waitUntil: 'networkidle0' }),
 	]).catch(e => console.log('Click error:', e));
+	
 	// Save Session Cookies
 	const cookiesObject = await page.cookies();
 	const jsonfile = require('jsonfile');

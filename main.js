@@ -48,7 +48,7 @@ Apify.main(async () => {
 			try { 
 			    if (!login_flag) { // we login at the first request 
 					login_flag = true;  
-					await login_page(page); 	
+					await login_page(page, input.username, input.password);  
 				} 				
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
