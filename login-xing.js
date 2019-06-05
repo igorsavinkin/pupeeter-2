@@ -14,8 +14,9 @@ function login_by_cookie_sync(browser, close=0, url='https://www.xing.com'){
     });	
 }
 
-async function login_page(page, username="", password="") {
-	if (!username) { 
+async function login_page(page, username="", password="", cookieFile="") {
+	if (!username) {
+		const config = require('./config.js');
 		username = config.CREDS.username;
 		if (!password) { 
 			password = config.CREDS.password;
@@ -35,7 +36,11 @@ async function login_page(page, username="", password="") {
 	// Save Session Cookies
 	const cookiesObject = await page.cookies();
 	const jsonfile = require('jsonfile');
-	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
+	if (!cookieFile){
+		const config = require('./config.js');
+		config.cookieFile = config.cookieFile;
+	}
+	cookiesFilePath = __dirname.split('/').pop() + path.sep +  cookieFile; 
 	//console.log('cookiesFilePath:', cookiesFilePath);
 	// Write cookies to config.cookieFile to be used in other profile sessions.
 	jsonfile.writeFile(cookiesFilePath, cookiesObject, { spaces: 2 },

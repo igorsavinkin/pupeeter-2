@@ -24,6 +24,33 @@ var login_flag = false;
 var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 
+function getValidRequest(request, queue){ 
+	while ( request.url.includes('/employees') || 
+			request.url.includes('/industries')  ||
+			request.url.includes('/reviews')  ) 
+			request.url.includes('/employees') || 
+			request.url.includes('/industries')  ||
+			request.url.includes('/updates') ||
+			request.url.includes('/follower') ||
+			request.url.includes('.json') ||
+			request.url.includes('/jobs') ||
+			request.url.includes('/report') ||
+			request.url.includes('/affiliations') ||
+			request.url.includes('/follower') ||
+			request.url.includes('/search')  ||						
+			request.url.includes('/reviews')  
+	{ 
+		console.log(' Found a wrong request: ', request.url.split('/companies')[1]);
+	    request = queue.fetchNextRequest();
+	}
+	return request;
+}
+function printRequestQueue (requestQueue){
+	var { totalRequestCount, handledRequestCount, pendingRequestCount } = requestQueue.getInfo();	
+	console.log('\nRequest Queue:\n   total:', totalRequestCount); 
+	console.log('   handled:', handledRequestCount, '\n   pending:', pendingRequestCount);	
+}
+
 Apify.main(async () => { 
 	//await login(); // we do init login and save cookie
 
@@ -34,22 +61,70 @@ Apify.main(async () => {
 	var max_requests_per_crawl = parseInt( input.max_requests_per_crawl);
 	
 	const dataset = await Apify.openDataset('scraped-info');	
-    const requestQueue = await Apify.openRequestQueue(); 
+    const requestQueue = await Apify.openRequestQueue();  
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/daimlerag'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/optimussearch'});
+	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/optimussearch'});
     //requestQueue.addRequest({ url: 'https://www.xing.com/companies' });
 	//console.log('Request Queue:', requestQueue);
-    const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
-
+    //const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
+	//const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)+(?!\/jobs|\/report|\/affiliations|\/follower|\/search|\/reviews|\/industries|\/updates|\/employees)/gm)];
+	const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)*/)];
+	// hint for multiple negative lookahead: https://stackoverflow.com/a/47281442/1230477
+	// link to test: https://regex101.com/r/JFIUff/1
+	const regexp = /\//g;
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
-		launchPuppeteerOptions: { slowMo: 55 } , 
+		maxRequestsPerCrawl: max_requests_per_crawl,
+        maxConcurrency: concurrency,
+		launchPuppeteerOptions: { slowMo: 45 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login at the first request 
 					login_flag = true;  
-					await login_page(page, input.username, input.password);  
-				} 				
+					console.log('\n\n Request Queue:\n', requestQueue);
+					await login_page(page, input.username, input.password, input.cookieFile);					
+				} 	 
+				// requestQueue
+				//printRequestQueue (requestQueue);
+				//var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();	
+				//console.log('\nRequest Queue:\n   total:', totalRequestCount); 
+				//console.log('   handled:', handledRequestCount, '\n   pending:', pendingRequestCount);	
+				//if (pseudoUrls[0].matches(request.url)) console.log(request.url.split('/companies')[1], ' matches pseudoUrls.');	
+				 
+				/*while (!request.url || [request.url.match(regexp)][0].length > 4){
+					if (request.url) console.log(' !!!!!! slashes number in a request.url:', [request.url.match(regexp)][0].length)
+					request = requestQueue.fetchNextRequest();
+				} 
+				console.log('request.url:', request.url.split('/companies')[1]);
+				console.log(' slashes number in a request.url:', [request.url.match(regexp)][0].length)
+				*/
+				/*while ( !request.url ||
+				        request.url.includes('/employees') || 
+						request.url.includes('/industries')  ||
+						request.url.includes('/updates') ||
+						request.url.includes('/followers') ||
+						request.url.includes('.json') ||
+						request.url.includes('/jobs') ||
+						request.url.includes('/report') ||
+						request.url.includes('/affiliations') ||
+						request.url.includes('/follower') ||
+						request.url.includes('/search')  ||						
+						request.url.includes('/reviews')  
+					) 
+				{ 					
+					if (request.url) {
+						console.log('--wrong req-st:', request.url.split('companies')[1]);
+					}
+					//try {
+					//	requestQueue.markRequestHandled(request);
+					//} catch(e) {
+					//	console.log(e); 
+					//}
+					//request.handledAt = "2019-05-27T13:53:57.169Z";					 
+					
+				} */
+				//request = getValidRequest(request, requestQueue);
+				//console.log('\nValid request:', request);
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
 				console.log('\nPage request error:', error);
@@ -63,7 +138,7 @@ Apify.main(async () => {
 				company_name = await (await name_element.getProperty('textContent')).jsonValue();
 				var company_name = company_name.trim();  
 			} catch(error){
-				console.log(`\nNo company name in url: ${request.url}:\n`); //, error);
+				//console.log(`\nNo company name in url: ${request.url}:\n`); //, error);
 			}
 			if (company_name) {
 				// section
@@ -73,70 +148,70 @@ Apify.main(async () => {
 					summary_text = await (await summary_element.getProperty('textContent')).jsonValue();
 					//console.log('section.facts: ', summary_text);
 				} catch(error){
-					console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
 				} 
 				var about_us='';
 				try {
 					var about_element = await page.$('div#about-us-content'); 
 					about_us = await (await about_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get about section for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get about section for url: ${request.url}: `, error);
 				} 
 				var employees='';
 				try {
 					var employees_element = await page.$('li#employees-tab > a'); 
 					employees = await (await employees_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get about section for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get about section for url: ${request.url}: `, error);
 				} 
 				var street_address='';
 				try {
 					var street_element = await page.$('div[itemprop="streetAddress"]');
 					street_address = await (await street_element.getProperty('textContent')).jsonValue(); //.trim();
 				} catch(error){
-					console.log(`\nFailure to get street address for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get street address for url: ${request.url}: `, error);
 				}
 				var post_index='';
 				try {
 					var index_element = await page.$('*[itemprop="postalCode"]');
 					post_index = await (await index_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get post index for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get post index for url: ${request.url}: `, error);
 				}
 				var city='';
 				try {
 					var city_element = await page.$('*[itemprop="addressLocality"]');
 					city = await (await city_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get city for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get city for url: ${request.url}: `, error);
 				} 
 				var country='';
 				try {
 					var country_element = await page.$('*[itemprop="addressCountry"]');
 					country = await (await country_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get country for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get country for url: ${request.url}: `, error);
 				}
 				var phone='';
 				try {
 					var phone_element = await page.$('*[itemprop="telephone"]');
 					phone = await (await phone_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get phone number for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get phone number for url: ${request.url}: `, error);
 				} 
 				var email='';
 				try {
 					var email_element = await page.$('a[itemprop="email"]');
 					email = await (await email_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get email for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get email for url: ${request.url}: `, error);
 				} 
 				var website='';
 				try {
 					var website_element = await page.$('a[itemprop="url"]');
 					website = await (await website_element.getProperty('textContent')).jsonValue();
 				} catch(error){
-					console.log(`\nFailure to get website  for url: ${request.url}: `, error);
+					//console.log(`\nFailure to get website  for url: ${request.url}: `, error);
 				} 
 				console.log(`Company for ${request.url}: ${company_name}`);
 				var product_services = '';
@@ -151,14 +226,14 @@ Apify.main(async () => {
 						industry = split2[1].trim(); 
 					}
 				} catch(e) {
-					console.log('Failed to get "product_services" or "industry" fields. \nError:',e);
+					//console.log('Failed to get "product_services" or "industry" fields. \nError:',e);
 				}
 				if (about_us){
 					try { 
 						var turnover = about_us.match(re_turnover)[0];
 					} catch (e) {
 						var turnover ='';
-						console.log('No "turnover/Umsatz" found.');
+						//console.log('No "turnover/Umsatz" found.');
 					}
 				}
 				var employees_num='';
@@ -168,7 +243,7 @@ Apify.main(async () => {
 							employees_num=employees_num.replace(',', '');
 						} 
 					} catch(e){
-						console.log('No employees number found.');
+						//console.log('No employees number found.');
 					}
 				}
 				
@@ -190,6 +265,7 @@ Apify.main(async () => {
 				});
 			}
             await Apify.utils.enqueueLinks({ page, selector: 'a', pseudoUrls, requestQueue });
+			// https://sdk.apify.com/docs/api/pseudourl
         },
         handleFailedRequestFunction: async ({ request }) => {
             console.log(`Request ${request.url} failed too many times`);
@@ -197,15 +273,15 @@ Apify.main(async () => {
                 '#debug': Apify.utils.createRequestDebugInfo(request),
             });
         },
-        maxRequestsPerCrawl: max_requests_per_crawl,
-        maxConcurrency: concurrency,
+        
     });
 
     await crawler.run();
-	
-	console.log('\nDeleting requestQueue');
-	await requestQueue.delete();
-	
+	//printRequestQueue (requestQueue);
+	//console.log('\nDeleting requestQueue');
+	//await requestQueue.delete();
+	// await queue.addRequest(new Apify.Request({ url: 'http://example.com/foo/bar'}, { forefront: true });
+
 	console.log('\n******** Results ********');
 	/*var obj = { companies: [] };	 
 	await dataset.forEach(async (item, index) => {		
