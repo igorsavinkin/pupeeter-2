@@ -55,10 +55,16 @@ Apify.main(async () => {
 	//await login(); // we do init login and save cookie
 
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
-	const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
+	try { 
+		const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
+	} catch(e) { 
+		console.log('input error:', e); 
+	} 
 	var concurrency = 2; //parseInt(input.concurrency);
 	var page_handle_max_wait_time = 2; // parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl = 8; // parseInt( input.max_requests_per_crawl);
+	
+	console.log('\ninput.username:' , input.username, '\ninput.password:', input.password);
 	
 	const dataset = await Apify.openDataset('scraped-info');	
     const requestQueue = await Apify.openRequestQueue();  

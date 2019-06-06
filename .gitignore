@@ -2,6 +2,8 @@ apify_storage
 node_modules
 stat
 test*
+temp*
 *.bak
 *.log
 config.js
+report*
