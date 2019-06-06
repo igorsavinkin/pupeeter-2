@@ -4,3 +4,4 @@ stat
 test*
 *.bak
 *.log
+config.js

@@ -56,9 +56,9 @@ Apify.main(async () => {
 
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
 	const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
-	var concurrency = parseInt( input.concurrency);
-	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
-	var max_requests_per_crawl = parseInt( input.max_requests_per_crawl);
+	var concurrency = 2; //parseInt(input.concurrency);
+	var page_handle_max_wait_time = 2; // parseInt( input.page_handle_max_wait_time);
+	var max_requests_per_crawl = 8; // parseInt( input.max_requests_per_crawl);
 	
 	const dataset = await Apify.openDataset('scraped-info');	
     const requestQueue = await Apify.openRequestQueue();  
