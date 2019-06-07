@@ -6,5 +6,4 @@ process.env.APIFY_MEMORY_MBYTES = 2000;
 Apify.main(async () => { 
 	const  enviroment_vars  = await Apify.getEnv();
 	console.log('enviroment vars :', enviroment_vars);
-	//process.exit();
-}
+});
