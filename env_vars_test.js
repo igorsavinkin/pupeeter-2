@@ -7,11 +7,7 @@ Apify.main(async () => {
 	const  enviroment_vars  = await Apify.getEnv();
 	console.log('\n localStorageDir:', enviroment_vars.localStorageDir );
 	console.log(' memoryMbytes:', enviroment_vars.memoryMbytes );
-	 	
-	try {		
-		const input = await Apify.getInput();
-		console.log('\n input:', input );  
-	} catch(e) { 
-		console.log('Error in the input :', e); 
-	} 
+	 			
+	const input = await Apify.getInput();
+	console.log('\n input:', input );	
 });

@@ -2,8 +2,8 @@ const fs = require('fs');
 const Apify = require('apify');
 const puppeteer = require('puppeteer');
 require('./login-xing.js');
-process.env.APIFY_LOCAL_STORAGE_DIR="./apify_storage";
-process.env.APIFY_MEMORY_MBYTES = 2000;
+//process.env.APIFY_LOCAL_STORAGE_DIR="./apify_storage";
+//process.env.APIFY_MEMORY_MBYTES = 2000;
 /*
 1. Company Name - name
 2. Xing Link - url
