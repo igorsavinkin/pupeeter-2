@@ -5,5 +5,13 @@ const puppeteer = require('puppeteer');
 
 Apify.main(async () => { 
 	const  enviroment_vars  = await Apify.getEnv();
-	console.log('enviroment vars :', enviroment_vars);
+	console.log('localStorageDir:', enviroment_vars.localStorageDir );
+	console.log('memoryMbytes:', enviroment_vars.memoryMbytes );
+	
+	try { 
+		const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
+		console.log('\ninput:', input );
+	} catch(e) { 
+		console.log('Error in the input configuration for the actor:', e); 
+	} 
 });
