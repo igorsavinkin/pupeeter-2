@@ -9,7 +9,9 @@ Apify.main(async () => {
 	console.log('memoryMbytes:', enviroment_vars.memoryMbytes );
 	
 	try { 
-		const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
+		//const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
+		const store = await Apify.openKeyValueStore();
+		const input = await store.getValue('INPUT');
 		console.log('\ninput:', input );
 	} catch(e) { 
 		console.log('Error in the input configuration for the actor:', e); 
