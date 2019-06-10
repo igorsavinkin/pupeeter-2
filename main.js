@@ -63,8 +63,8 @@ function findAll(regexPattern, sourceString) {
 } 
 function addLinksToRequestQueue(links, requestQueue){
 	for (elem of links) {
-		let name = elem.split('/companies')[1];
-		if (!['search', 'icons', 'industries', 'img'].includes(name) 
+		let name = elem.split('/companies/')[1];
+		if (!['search', 'icons', 'industries', 'img', 'scraping'].includes(name) 
 			&& !name.startsWith("application-") 
 			&& !name.startsWith("draggable-")){
 			requestQueue.addRequest({ url: elem });
@@ -320,8 +320,7 @@ Apify.main(async () => {
 			}*/
 			for (elem of links_found2) {
 				links_found.add('https://www.xing.com'+elem);	 
-			}
-			console.log('after resolving: ', links_found2);
+			} 
 			addLinksToRequestQueue(links_found, requestQueue);
 			//addLinksToRequestQueue(links_found2, requestQueue);
 			
