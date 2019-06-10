@@ -2,8 +2,8 @@ const fs = require('fs');
 const Apify = require('apify');
 const puppeteer = require('puppeteer');
 require('./login-xing.js');
-process.env.APIFY_LOCAL_STORAGE_DIR="./apify_storage";
-process.env.APIFY_MEMORY_MBYTES = 2000;
+//process.env.APIFY_LOCAL_STORAGE_DIR="./apify_storage";
+//process.env.APIFY_MEMORY_MBYTES = 2000;
 /*
 1. Company Name - name
 2. Xing Link - url
@@ -77,8 +77,6 @@ function addLinksToRequestQueue(links, requestQueue){
 	return requestQueue;
 }
 Apify.main(async () => {  
-	//await login(); // we do init login and save cookie
-
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
 	const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
 	var concurrency =  parseInt(input.concurrency);
@@ -103,7 +101,6 @@ Apify.main(async () => {
 	const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)*/)];
 	// hint for multiple negative lookahead: https://stackoverflow.com/a/47281442/1230477
 	// link to test: https://regex101.com/r/JFIUff/1
-	const regexp = /\//g;
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
@@ -279,8 +276,8 @@ Apify.main(async () => {
     });
 
     await crawler.run();
-	
-	printRequestQueue (requestQueue);
+
+	printRequestQueue(requestQueue);
 	console.log('\nDeleting requestQueue');
 	await requestQueue.delete();
 	// await queue.addRequest(new Apify.Request({ url: 'http://example.com/foo/bar'}, { forefront: true });
