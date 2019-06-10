@@ -46,7 +46,7 @@ function getValidRequest(request, queue){
 	return request;
 }
 function printRequestQueue (requestQueue){
-	var { totalRequestCount, handledRequestCount, pendingRequestCount } = requestQueue.getInfo();	
+	let { totalRequestCount, handledRequestCount, pendingRequestCount } = requestQueue.getInfo();	
 	console.log('\nRequest Queue:\n   total:', totalRequestCount); 
 	console.log('   handled:', handledRequestCount, '\n   pending:', pendingRequestCount);	
 }
@@ -65,12 +65,13 @@ function addLinksToRequestQueue(links, requestQueue){
 	for (elem of links) {
 		let name = elem.split('/companies/')[1];
 		if (!['search', 'icons', 'industries', 'img', 'scraping'].includes(name) 
-			&& !name.startsWith("application-") 
+			&& !name.startsWith("application-")
+			&& !name.startsWith("statistics-")		
 			&& !name.startsWith("draggable-")){
 			requestQueue.addRequest({ url: elem });
-			console.log('added:', elem);
+			//console.log('added:', elem);
 		} else {
-			console.log('NOT added - ', elem);
+			//console.log('NOT added - ', elem);
 		}
 	}
 	return requestQueue;
@@ -85,8 +86,8 @@ Apify.main(async () => {
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl);
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
 	const short_link_regex = /\/companies\/[\w|-]+/g;
-	var links_found={};
-	var links_found2 = {};
+	var links_found = {};
+	var links_found_short = {};
 	var page_content=''; 
 	//console.log('\ninput.username:' , input.username, '\ninput.password:', input.password);
 	
@@ -96,8 +97,8 @@ Apify.main(async () => {
 	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/optimussearch'});
     requestQueue.addRequest({ url: 'https://www.xing.com/companies' });
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/recommendations' });
-	//console.log('Request Queue:', requestQueue);
-    //const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
+	requestQueue.addRequest({ url: 'https://www.xing.com/companies/recommendations?page=2'});
+	//const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
 	//const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)+(?!\/jobs|\/report|\/affiliations|\/follower|\/search|\/reviews|\/industries|\/updates|\/employees)/gm)];
 	const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)*/)];
 	// hint for multiple negative lookahead: https://stackoverflow.com/a/47281442/1230477
@@ -112,59 +113,9 @@ Apify.main(async () => {
 			try { 
 			    if (!login_flag) { // we login at the first request 
 					login_flag = true;  
-					console.log('\n\n Request Queue:\n', requestQueue);
+					//console.log('\n\n Request Queue:\n', requestQueue);
 					await login_page(page, input.username, input.password, input.cookieFile);					
-				} 	 
-				// requestQueue
-				//printRequestQueue (requestQueue);
-				//var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();	
-				//console.log('\nRequest Queue:\n   total:', totalRequestCount); 
-				//console.log('   handled:', handledRequestCount, '\n   pending:', pendingRequestCount);	
-				//if (pseudoUrls[0].matches(request.url)) console.log(request.url.split('/companies')[1], ' matches pseudoUrls.');	
-				 
-				/*while (!request.url || [request.url.match(regexp)][0].length > 4){
-					if (request.url) console.log(' !!!!!! slashes number in a request.url:', [request.url.match(regexp)][0].length)
-					request = requestQueue.fetchNextRequest();
-				} 
-				console.log('request.url:', request.url.split('/companies')[1]);
-				console.log(' slashes number in a request.url:', [request.url.match(regexp)][0].length)
-				*/
-				/*while ( !request.url ||
-				        request.url.includes('/employees') || 
-						request.url.includes('/industries')  ||
-						request.url.includes('/updates') ||
-						request.url.includes('/followers') ||
-						request.url.includes('.json') ||
-						request.url.includes('/jobs') ||
-						request.url.includes('/report') ||
-						request.url.includes('/affiliations') ||
-						request.url.includes('/follower') ||
-						request.url.includes('/search')  ||						
-						request.url.includes('/reviews')  
-					) 
-				{ 					
-					if (request.url) {
-						console.log('--wrong req-st:', request.url.split('companies')[1]);
-					}
-					//try {
-					//	requestQueue.markRequestHandled(request);
-					//} catch(e) {
-					//	console.log(e); 
-					//}
-					//request.handledAt = "2019-05-27T13:53:57.169Z";					 
-					
-				} */
-				//request = getValidRequest(request, requestQueue);
-				//console.log('\nValid request:', request);
-				// show requestQueue
-				/*let i=0; 
-				while (!requestQueue.isEmpty() ){
-					let request = requestQueue.fetchNextRequest();
-					console.log(i, ' request: ', request);
-					i+=1;
-				}*/
-				
-				
+				} 	
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
 				console.log('\nPage request error:', error);
@@ -302,30 +253,21 @@ Apify.main(async () => {
 					country: country,
 					phone: phone,
 					email: email,
-					website: website,
-					//about_us, about_us		
+					website: website,		
 				});
 			}
 			page_content = await page.content();
-			links_found = findAll(link_regex, page_content);
-			console.log('FOUND LINKS:', links_found );
-			links_found2 =  findAll(short_link_regex, page_content); 
-			console.log('FOUND SHORT LINKS:', links_found2 );
+			links_found  =  findAll(link_regex, page_content);
+			links_found_short =  findAll(short_link_regex, page_content);  			
 			
-			
-			// add links to requestQueue
-			/*for (elem of links_found) {
-			     requestQueue.addRequest({ url: elem});
-			      console.log('added', elem);
-			}*/
-			for (elem of links_found2) {
+			for (elem of links_found_short) {
 				links_found.add('https://www.xing.com'+elem);	 
 			} 
-			addLinksToRequestQueue(links_found, requestQueue);
-			//addLinksToRequestQueue(links_found2, requestQueue);
+			console.log('FOUND LINKS at "'+ request.url +'": (', links_found.size, ')\n', links_found );
 			
+			addLinksToRequestQueue(links_found, requestQueue); 
+			printRequestQueue(requestQueue);
             //await Apify.utils.enqueueLinks({ page, selector: 'a', pseudoUrls, requestQueue });
-			// https://sdk.apify.com/docs/api/pseudourl
         },
         handleFailedRequestFunction: async ({ request }) => {
             console.log(`Request ${request.url} failed too many times`);
@@ -337,7 +279,8 @@ Apify.main(async () => {
     });
 
     await crawler.run();
-	//printRequestQueue (requestQueue);
+	
+	printRequestQueue (requestQueue);
 	console.log('\nDeleting requestQueue');
 	await requestQueue.delete();
 	// await queue.addRequest(new Apify.Request({ url: 'http://example.com/foo/bar'}, { forefront: true });
