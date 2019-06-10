@@ -31,6 +31,7 @@ async function login_page(page, username="", password="", cookieFile="") {
 			document.getElementsByTagName('button')[1].click();
 		}),		
 		page.waitForNavigation({ waitUntil: 'networkidle0' }),
+		console.log('Success to log in!')
 	]).catch(e => console.log('Click error:', e));
 	
 	// Save Session Cookies
