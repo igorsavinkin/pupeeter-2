@@ -17,7 +17,8 @@ require('./login-xing.js');
 10. Produkte & Services - product_services
 11. Branche - industry
 12. Unternehmensgröße - about_us - turnover
-13. Employes - employees
+13. Employees - employees_num
+14. Employees range - employees_range
 */ 
 
 var login_flag = false;
@@ -92,10 +93,13 @@ Apify.main(async () => {
 	const dataset = await Apify.openDataset('scraped-info');	
     const requestQueue = await Apify.openRequestQueue();  
 	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/daimlerag'});
-	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/optimussearch'});
-    requestQueue.addRequest({ url: 'https://www.xing.com/companies' });
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/recommendations' });
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/recommendations?page=2'});
+	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-amggmbh'});
+    
+	//requestQueue.addRequest({ url: 'https://www.xing.com/companies' });
+	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/recommendations' });
+	//requestQueue.addRequest({ url: 'https://www.xing.com/companies/recommendations?page=2'});
+	
 	//const pseudoUrls = [new Apify.PseudoUrl('https://www.xing.com/companies/[.+]')];
 	//const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)+(?!\/jobs|\/report|\/affiliations|\/follower|\/search|\/reviews|\/industries|\/updates|\/employees)/gm)];
 	const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)*/)];
@@ -213,7 +217,11 @@ Apify.main(async () => {
 					} 				
 					var split2 = split1[0].split("Industry");
 					if (typeof split2[1] !== 'undefined'){
-						industry = split2[1].trim(); 
+						industry = split2[1].trim(); 						
+					}
+					var split3 = split2[0].split("Year of establishment")[0].split('Employees');
+					if (typeof split3[1] !== 'undefined'){
+						employees_range = split3[1].trim().split(',').join(''); 						
 					}
 				} catch(e) {
 					//console.log('Failed to get "product_services" or "industry" fields. \nError:',e);
@@ -242,6 +250,7 @@ Apify.main(async () => {
 					name: company_name,
 					turnover: turnover,
 					employees_num : employees_num,
+					employees_range : employees_range,
 					industry: industry,
 					product_services: product_services,					
 					street_address: street_address,
