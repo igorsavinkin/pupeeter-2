@@ -24,6 +24,7 @@ require('./login-xing.js');
 var login_flag = false;
 var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
+var account = {};
 
 function getValidRequest(request, queue){ 
 	while ( request.url.includes('/employees') || 
@@ -81,6 +82,14 @@ Apify.main(async () => {
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
 	const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
 	var concurrency =  parseInt(input.concurrency);
+	accounts = input.account; 
+	for (let item in accounts) {
+	   console.log(item,':' ,accounts[item]);
+	}
+	let account = accounts[input.account_index];
+	console.log( '\n We select "account',  input.account_index,'" : ' ,account );
+	
+	//process.exit();
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl);
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
@@ -105,6 +114,7 @@ Apify.main(async () => {
 	const pseudoUrls = [new Apify.PseudoUrl(/https:\/\/www\.xing\.com\/companies\/(\w|-)*/)];
 	// hint for multiple negative lookahead: https://stackoverflow.com/a/47281442/1230477
 	// link to test: https://regex101.com/r/JFIUff/1
+	
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
@@ -115,7 +125,7 @@ Apify.main(async () => {
 			    if (!login_flag) { // we login at the first request 
 					login_flag = true;  
 					//console.log('\n\n Request Queue:\n', requestQueue);
-					await login_page(page, input.username, input.password, input.cookieFile);					
+					await login_page(page, account.username, account.password, input.cookieFile);					
 				} 	
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
@@ -211,15 +221,15 @@ Apify.main(async () => {
 				var product_services = '';
 				var industry = '';
 				try {
-					var split1 = summary_text.split("Products and services");
+					let split1 = summary_text.split("Products and services");
 					if (typeof split1[1] !== 'undefined') {
 						product_services = split1[1].trim();  
 					} 				
-					var split2 = split1[0].split("Industry");
+					let split2 = split1[0].split("Industry");
 					if (typeof split2[1] !== 'undefined'){
 						industry = split2[1].trim(); 						
 					}
-					var split3 = split2[0].split("Year of establishment")[0].split('Employees');
+					let split3 = split2[0].split("Year of establishment")[0].split('Employees');
 					if (typeof split3[1] !== 'undefined'){
 						employees_range = split3[1].trim().split(',').join(''); 						
 					}
@@ -238,7 +248,7 @@ Apify.main(async () => {
 				if (employees){
 					try { employees_num = employees.match(re_employees)[0]; 
 					    if (employees_num){
-							employees_num=employees_num.replace(',', '');
+							employees_num = employees_num.replace(',', '');
 						} 
 					} catch(e){
 						//console.log('No employees number found.');
