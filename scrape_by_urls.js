@@ -39,7 +39,7 @@ Apify.main(async () => {
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
 	const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
 	var concurrency =  parseInt(input.concurrency);
-	var account = input.account["1"];
+	var account = input.account["0"];
 	var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
 	//process.exit();
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
@@ -59,7 +59,7 @@ Apify.main(async () => {
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 105 } , 
+		launchPuppeteerOptions: { slowMo: 135 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login at the first request 
@@ -77,17 +77,19 @@ Apify.main(async () => {
             try {
 				let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 				let companies_num = await (await result.getProperty('textContent')).jsonValue();
-				console.log('\n comp number:', companies_num);
+				//console.log('\n comp number:', companies_num);
 				let amount = parseInt(companies_num.replace(',', ''));				
 				if (!amount && companies_num.includes('One company')) { amount=1; }
-				console.log(' amount:', amount);
 				if (amount){
+					console.log('\nFound amount:', amount);
 					total_companies += amount;				
+				} else {
+					console.log('Amount is empty.'); 
 				}
 			} catch(error){
 				console.log(`\nNo companies number found for ${request.url}:\n` , error);
 			} 
-			console.log('Total companies: ', total_companies, '\n   *******');
+			console.log('Total companies found: ', total_companies, '\n ******************');
 			/*page_content = await page.content();
 			links_found  =  findAll(link_regex, page_content);
 			links_found_short =  findAll(short_link_regex, page_content);  			
