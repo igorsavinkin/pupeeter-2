@@ -1,5 +1,6 @@
 apify_storage
 node_modules
+!stat/xing_GAS_companies_stat.html
 stat
 test*
 temp*
@@ -7,4 +8,3 @@ temp*
 *.log
 config.js
 report*
-!stat/xing_GAS_companies_stat.html
