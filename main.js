@@ -17,7 +17,7 @@ require('./login-xing.js');
 10. Produkte & Services - product_services
 11. Branche - industry
 12. Unternehmensgröße - about_us - turnover
-13. Employees - employees_num
+13. Employees number - employees_num
 14. Employees range - employees_range
 */ 
 
@@ -25,7 +25,33 @@ var login_flag = false;
 var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 var account = {};
+var countries='';
+var countriesMap = new Map();
+var countriesMap = { 'germany': 2921044 ,'austria': 2782113 , 'switzerland': 2658434 };
+var categoriesMap = new Map();
+var categoriesMap = {'over_10000': 9 }; 
+var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
+	
+process.argv.forEach(function (val, index, array) {
+  console.log(index + ': ' + val);
+  if (val.startsWith('country=')) {
+	  countries = val.split('country=')[1]; 
+  }
+});
+//  germany,austria,switzerland 
+//filter.location[]=2921044&filter.location[]=2782113&filter.location[]=2658434
+//console.log('countries:', countries);
+var get_parameters=''; 
+countries.split(',').forEach(function (item, index) {
+    //console.log(item, index, countriesMap[item]);
+    get_parameters += '&filter.location[]='+countriesMap[item];
+});
+//console.log('get_parameters:', get_parameters);
 
+var companies_req = 'https://www.xing.com/search/companies?filter.size[]=9' + get_parameters
+console.log('\ncompanies_req:', companies_req);
+
+process.exit();
 function getValidRequest(request, queue){ 
 	while ( request.url.includes('/employees') || 
 			request.url.includes('/industries')  ||
