@@ -49,12 +49,19 @@ async function login_page(page, username="", password="", cookieFile="") {
 			if (err){
 				console.log('Failure!\nThe json session file could not be written.', err);
 			} else {
-				//console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
+				console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
 			}
 		});
 }
 
-async function login(close_browser=1, slow_down_ms=50) {
+async function login(username="", password="", cookieFile="cookies.json", close_browser=1, slow_down_ms=50) {
+	if (!username) {
+		const config = require('./config.js');
+		username = config.CREDS.username;
+		if (!password) { 
+			password = config.CREDS.password;
+		} 
+	}	
 	const browser = await puppeteer.launch({
 		headless: false,       // make it with screen
 		slowMo: slow_down_ms   // slow down by ms.
@@ -62,8 +69,8 @@ async function login(close_browser=1, slow_down_ms=50) {
 	const page = await browser.newPage();
 	await page.setViewport({width: 800, height: 700});
 	await page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
-	await page.type('input[name="login_form[username]"]', config.CREDS.username);
-	await page.type('input[name="login_form[password]"]', config.CREDS.password);
+	await page.type('input[name="login_form[username]"]',  username);
+	await page.type('input[name="login_form[password]"]',  password);
 	// click and wait for navigation
 	await Promise.all([
 		page.evaluate(() => {
@@ -75,7 +82,7 @@ async function login(close_browser=1, slow_down_ms=50) {
 	// and https://stackoverflow.com/a/54227598/1230477
 	const cookiesObject = await page.cookies();
 	const jsonfile = require('jsonfile');
-	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
+	cookiesFilePath = __dirname.split('/').pop() + path.sep + cookieFile; 
 	//console.log('cookiesFilePath:', cookiesFilePath);
 	
 	// Write cookies to config.cookieFile to be used in other profile sessions.
@@ -100,7 +107,7 @@ const jsonfile = require('jsonfile');
 const fs = require('fs');
 
 function set_cookie(page) {
-	cookiesFilePath = __dirname.split('/').pop() + path.sep + config.cookieFile; 
+	cookiesFilePath = __dirname.split('/').pop() + path.sep + 'cookies.json'; // config.cookieFile; 
 	//console.log('cookiesFilePath:', cookiesFilePath);
 	const previousSession = fs.existsSync(cookiesFilePath);
 	if (previousSession) {
