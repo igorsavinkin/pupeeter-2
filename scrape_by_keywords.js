@@ -5,7 +5,10 @@ require('./login-xing.js');
 
 var login_flag = false;
 var total_page_links = new Set();
-
+var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
+var re_employees = new RegExp(/\d+,?\d+/);
+var empty_req = {};
+var oversise_req = {}; 
 function findAll(regexPattern, sourceString) { 
 	let _Set = new Set();
     let match
@@ -43,14 +46,18 @@ Apify.main(async () => {
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
 	//const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
 	const store = await Apify.openKeyValueStore('default');
+	
 	const input = await store.getValue('INPUT-ger-10000');
+	
 	var concurrency =  parseInt(input.concurrency);
-	var account = input.account["1"];
+	var account = input.account[input.account_index];
 	//var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
 	//var alphabet = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
 	// process.exit();
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
+	
+	
 	var links_found = {};
 	var links_found_short = {};
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
@@ -58,49 +65,66 @@ Apify.main(async () => {
 	var page_content='';
 	var total_companies = 0;
 	var base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords='	
-
+	var counter=0;	
+	
 	const dataset = await Apify.openDataset('ger-10000+');
-    const requestQueue = await Apify.openRequestQueue('ger-10000+');  	
+	
+	console.log('opening queue "ger-10000+"...');
+    const requestQueue = await Apify.openRequestQueue('ger-10000+');  
+	
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
-	console.log("Init Request Queue name:", name );
+	console.log(`Init Request Queue "${name}".` );
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
 	
-	//requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	
 	/*
+	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});
+	 
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-amggmbh'});
-	*/
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=d'});
+	 */
 	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=e'});
+	/*requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=c'});
+    */
 	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=f'});
+	
+	//process.exit();
+	// add request urls from input
+	/*if (input.init_urls){		
+		var init_urls = input.init_urls.split(',');
+		console.log(init_urls);
+		for (let i = 0; i <= init_urls.length ; i++) { 
+		    console.log(`adding: ${init_urls[i]}` );
+			requestQueue.addRequest({ url: 	init_urls[i] });			
+		}
+	}*/
 	
 	// Open a named key-value store
     const links_store = await Apify.openKeyValueStore('links_store');
+	
     // we login before the crawler run to get fresh cookies written into file
-	console.log('Start logging-in...');
-	await login(account.username, account.password, input.cookieFile, 1);
-	console.log('Login is done before the crawler run to get fresh cookies written into file...');
-   
+	//console.log('Start logging-in...');
+	//await login(account.username, account.password, input.cookieFile, 1);
+	//console.log('Login is done before the crawler run to get fresh cookies written into file...');
+    
+	
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 155 } , 
+		launchPuppeteerOptions: { slowMo: 55 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
-			    if (!login_flag) { // we login at the first request 
-					//login_flag = true;  
-					//console.log('\n\n Request Queue:\n', requestQueue);
-					//await login_page(page, account.username, account.password, input.cookieFile);					
+			    if (!login_flag) { // we login until the `login_flag` is off/false 			
 					try{	 
-						await set_cookie(page);
-						console.log('Cookie is set for log-in!');
+						//await set_cookie(page);
+						// console.log('Cookie is set for log-in!');
+						await login_page(page, account.username, account.password, input.cookieFile);	
+						console.log('Success to log in!');
 						//await page.reload();
 						//await page.waitFor(45);
 					} catch(e){ console.log('Error setting cookies:', e); }
-					//process.exit();
 				} 	
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){
@@ -108,8 +132,9 @@ Apify.main(async () => {
 			};  
 		},
         handlePageFunction: async ({ request, page }) => {
-			console.log('***********************\n Page:', request.url.split('/companies')[1]);
-			
+			if (!login_flag) { login_flag = true; }
+			counter+=1
+			console.log(`***********************\n ${counter}. Page:`, request.url.split('/companies')[1]);
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
@@ -135,6 +160,7 @@ Apify.main(async () => {
 						let max_page = total_companies > 300 ? 30 : Math.ceil(total_companies / 10); 
 						if (max_page*10 < total_companies) {
 							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
+							oversise_req[request.url.split('?')[1]]=total_companies;
 						}
 						console.log('paging sub-requests to ', request.url.split('?')[1]);
 						for (let i = 2; i <= max_page ; i++) { 
@@ -159,6 +185,9 @@ Apify.main(async () => {
 				await links_store.setValue('scraped_urls', links_found );
 				console.log('FOUND LINKS at "'+ request.url.split('?')[1] +'": (', links_found.size, ')\n', links_found );		
 				console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );		
+				if (links_found.size==0){
+					empty_req[counter] = request.url; 
+				}
 				// save company links into requestQueue
 				addLinksToRequestQueue(links_found, requestQueue); // The queue can only contain unique URLs.
 			
@@ -243,9 +272,9 @@ Apify.main(async () => {
 						var website='';
 						try {
 							var website_element = await page.$('a[itemprop="url"]');
-							website = await (await website_element.getProperty('textContent')).jsonValue();
+							website = await (await website_element.getProperty('href')).jsonValue();
 						} catch(error){
-							//console.log(`\nFailure to get website  for url: ${request.url}: `, error);
+							console.log(`\nFailure to get website  for url: ${request.url}: `, error);
 						} 
 						console.log(`Company for ${request.url}: ${company_name}`);
 						var product_services = '';
@@ -305,7 +334,7 @@ Apify.main(async () => {
 				} catch (e) { console.log(e); }				
 			}  
 			
-			if (!login_flag) { login_flag = true; }
+			
 			
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
@@ -350,19 +379,27 @@ Apify.main(async () => {
 
     await crawler.run();
 
-	// write total_page_links into file
-	var fs = require('fs');
+	if (input.deleteQueue) {
+		console.log('\nDeleting requestQueue');
+		await requestQueue.delete();
+	}
+	
+	// write total_page_links into file 
 	var json = JSON.stringify(total_page_links);
 	//fs.writeFile('total_page_links.json', json, 'utf8');
 	fs.writeFile("total_page_links.json", JSON.stringify(total_page_links, null, 4), (err) => {
 		if (err) {  console.error(err);  return; };
-		console.log("File has been created");
+		console.log("File 'total_page_links.json' has been created");
 	});
-	console.log('Request queue:', requestQueue.getInfo());
-	//console.log('\nDeleting requestQueue');
-	//await requestQueue.delete();
-	// await queue.addRequest(new Apify.Request({ url: 'http://example.com/foo/bar'}, { forefront: true });
-
+	
+	// print final queue
+	var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
+	console.log('Final RequestQueue\n handled:', handledRequestCount);
+	console.log(' pending:', pendingRequestCount);
+	console.log(' total:'  , totalRequestCount);
+	
+	console.log('************\nEmpty requests:', empty_req);
+	console.log('Oversized requests:', oversise_req);
 	console.log('\n******** Results ********');
 	console.log(' Final total companies: ', total_companies); 
 	

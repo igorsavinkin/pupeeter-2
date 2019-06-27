@@ -378,8 +378,7 @@ Apify.main(async () => {
     });
 
     await crawler.run();
-
-	//printRequestQueue(requestQueue);
+ 
 	if (input.deleteQueue) {
 		console.log('\nDeleting requestQueue');
 		await requestQueue.delete();
