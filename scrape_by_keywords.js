@@ -9,6 +9,7 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 var empty_req = {};
 var oversise_req = {}; 
+
 function findAll(regexPattern, sourceString) { 
 	let _Set = new Set();
     let match
@@ -20,10 +21,11 @@ function findAll(regexPattern, sourceString) {
     return _Set
 } 
 async function printRequestQueue(RequestQueue){
-	let { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();	
-	console.log('\nRequest Queue:\n   total:', totalRequestCount); 
-	console.log('   handled:', handledRequestCount, '\n   pending:', pendingRequestCount);	
-	return {totalRequestCount, handledRequestCount, pendingRequestCount};
+	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
+	console.log(`Init Request Queue "${name}" with init requests:` );
+	console.log(' handledRequestCount:', handledRequestCount);
+	console.log(' pendingRequestCount:', pendingRequestCount);
+	console.log(' totalRequestCount:'  , totalRequestCount);
 }
 
 function addLinksToRequestQueue(links, requestQueue){
@@ -45,8 +47,9 @@ function addLinksToRequestQueue(links, requestQueue){
 Apify.main(async () => {  
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
 	//const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
-	const store = await Apify.openKeyValueStore('default');
 	
+	// we get input from 'default' store (init variables from INPUT json file)
+	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-ger-10000');
 	
 	var concurrency =  parseInt(input.concurrency);
@@ -56,8 +59,10 @@ Apify.main(async () => {
 	// process.exit();
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
+	var dataset_name  =  input.dataset_name;
+	var queue_name  =  input.queue_name;
 	
-	
+	// utility variables
 	var links_found = {};
 	var links_found_short = {};
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
@@ -65,55 +70,80 @@ Apify.main(async () => {
 	var page_content='';
 	var total_companies = 0;
 	var base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords='	
-	var counter=0;	
+	var counter = 0;	
 	
-	const dataset = await Apify.openDataset('ger-10000+');
+	// dataset
+	const dataset = await Apify.openDataset(dataset_name);
 	
-	console.log('opening queue "ger-10000+"...');
-    const requestQueue = await Apify.openRequestQueue('ger-10000+');  
-	
+	// Open existing queue
+	console.log('Opening queue "${queue_name}"...');
+    const requestQueue = await Apify.openRequestQueue(queue_name);  
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
-	console.log(`Init Request Queue "${name}".` );
+	console.log(`Init Request Queue "${name}" with init requests:` );
+	console.log(' handledRequestCount:', handledRequestCount);
+	console.log(' pendingRequestCount:', pendingRequestCount);
+	console.log(' totalRequestCount:'  , totalRequestCount);	
+	 
+	
+	// add request urls from input.zero_pages_search_file 
+	if (input.zero_pages_search_file){	
+		console.log(`Reading file with zero pages ${input.zero_pages_search_file}`);	
+		let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
+		let urls = contents.split('\n');
+		console.log(`Urls from file to be added to queue (${urls.length})\n`, urls); 
+		let i;
+		for (i = 0; i < urls.length; i++) {  	
+			requestQueue.addRequest({ url: urls[i].trim() });
+		} 
+		console.log(`${i} url(s) been added from the file.`);
+	}
+	//process.exit();
+	/*
+	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	 
+	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-amggmbh'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=h&page=2'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=h&page=4'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=e&page=14'});/*requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=c'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=g'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=i'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=j'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=k'});
+	*/
+	
+	// add request urls from input
+	if (input.init_urls){		
+		let init_urls = input.init_urls.split(',');
+		console.log(`Adding requests from input init_urls (${init_urls.length}).`);
+		console.log('init_urls:', init_urls); 
+		let i;
+		for (i = 0; i < init_urls.length  ; i++) {  	
+			await requestQueue.addRequest({ url: init_urls[i].trim() });
+		} 
+		console.log(`${i} url(s) been added from input.`);
+	}
+	 
+	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
+	console.log(`Request Queue "${name}" before the crawl start:` );
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
 	
-	/*
-	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});
-	 
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-amggmbh'});
-	 */
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=e'});
-	/*requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=c'});
-    */
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=f'});
-	
 	//process.exit();
-	// add request urls from input
-	/*if (input.init_urls){		
-		var init_urls = input.init_urls.split(',');
-		console.log(init_urls);
-		for (let i = 0; i <= init_urls.length ; i++) { 
-		    console.log(`adding: ${init_urls[i]}` );
-			requestQueue.addRequest({ url: 	init_urls[i] });			
-		}
-	}*/
 	
 	// Open a named key-value store
-    const links_store = await Apify.openKeyValueStore('links_store');
+    //const links_store = await Apify.openKeyValueStore('links_store');
 	
     // we login before the crawler run to get fresh cookies written into file
 	//console.log('Start logging-in...');
 	//await login(account.username, account.password, input.cookieFile, 1);
 	//console.log('Login is done before the crawler run to get fresh cookies written into file...');
-    
-	
+    	
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 55 } , 
+		launchPuppeteerOptions: { slowMo: 50 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login until the `login_flag` is off/false 			
@@ -122,8 +152,6 @@ Apify.main(async () => {
 						// console.log('Cookie is set for log-in!');
 						await login_page(page, account.username, account.password, input.cookieFile);	
 						console.log('Success to log in!');
-						//await page.reload();
-						//await page.waitFor(45);
 					} catch(e){ console.log('Error setting cookies:', e); }
 				} 	
 				await page.goto(request.url, { timeout: 60000 });
@@ -138,7 +166,7 @@ Apify.main(async () => {
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
-				console.log('  processing search page');			
+				console.log(' --- processing a search page');			
 				if (!request.url.includes('&page=')){ // if this is an initial request
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
@@ -161,6 +189,9 @@ Apify.main(async () => {
 						if (max_page*10 < total_companies) {
 							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
 							oversise_req[request.url.split('?')[1]]=total_companies;
+							fs.appendFile(input.oversized_search_file, '\n'+request.url , function (err) {
+								if (err) {console.log(`Failure to save ${request.url} into ${input.oversized_search_file}`)}; 
+							});	
 						}
 						console.log('paging sub-requests to ', request.url.split('?')[1]);
 						for (let i = 2; i <= max_page ; i++) { 
@@ -182,17 +213,21 @@ Apify.main(async () => {
 					// save link into the links_store
 					total_page_links.add(elem);  
 				} 
-				await links_store.setValue('scraped_urls', links_found );
+				//await links_store.setValue('scraped_urls', links_found );
 				console.log('FOUND LINKS at "'+ request.url.split('?')[1] +'": (', links_found.size, ')\n', links_found );		
-				console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );		
+				console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );	
+				// process  pages with 0 links found
 				if (links_found.size==0){
-					empty_req[counter] = request.url; 
+					empty_req[counter] = request.url;
+					fs.appendFile(input.zero_pages_search_file, "\n"+request.url , function (err) {
+					    if (err) {console.log(`Failure to save ${request.url} into ${input.zero_pages_search_file}`)}; 
+					});	
 				}
 				// save company links into requestQueue
 				addLinksToRequestQueue(links_found, requestQueue); // The queue can only contain unique URLs.
 			
 			} else { // processing company page 
-				console.log('  processing company page:', request.url.split('/companies')[1]);
+				console.log(' --- processing a company page:', request.url.split('/companies')[1]);
 				try {
 					//gather_info_into_dataset(page);
 					var company_name='';
@@ -312,8 +347,7 @@ Apify.main(async () => {
 							} catch(e){
 								//console.log('No employees number found.');
 							}
-						}
-						
+						}						
 						await dataset.pushData({ 
 							url: request.url,
 							name: company_name,
@@ -332,9 +366,7 @@ Apify.main(async () => {
 						});
 					}
 				} catch (e) { console.log(e); }				
-			}  
-			
-			
+			}  			
 			
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
@@ -371,10 +403,8 @@ Apify.main(async () => {
             console.log(`Request ${request.url} failed too many times`);
             await Apify.pushData({
                 '#debug': Apify.utils.createRequestDebugInfo(request),
-            });
-			//printRequestQueue(requestQueue);
-        },
-        
+            }); 
+        },        
     });
 
     await crawler.run();

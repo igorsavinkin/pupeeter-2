@@ -277,7 +277,8 @@ Apify.main(async () => {
 					//console.log(`\nFailure to get email for url: ${request.url}: `, error);
 				} 
 				var website='';
-				try {
+				try { 
+					// alternative: await page.$eval('a[itemprop="url"]', (el) => el.href)
 					var website_element = await page.$('a[itemprop="url"]');  
 					website = await (await website_element.getProperty('href')).jsonValue(); 
 					if (!website || website == "Homepage") {
