@@ -114,6 +114,20 @@ Apify.main(async () => {
 	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=k'});
 	*/
 	
+	// add request urls from input based on letters
+	if (input.letters){		
+		let letters = input.letters.split(',');
+		console.log(`Adding requests from input letters (${letters.length}).`);
+		console.log('letters:', letters); 
+		let i;
+		for (i = 0; i < letters.length  ; i++) {  	
+			let url = base_req + letters[i].trim();
+			console.log('url from a letter:', url); 
+			await requestQueue.addRequest({ url: url });
+		} 
+		console.log(`${i} url(s) been added from letters input.`);
+	}
+	/*
 	// add request urls from input
 	if (input.init_urls){		
 		let init_urls = input.init_urls.split(',');
@@ -124,7 +138,7 @@ Apify.main(async () => {
 			await requestQueue.addRequest({ url: init_urls[i].trim() });
 		} 
 		console.log(`${i} url(s) been added from input.`);
-	}
+	}*/
 	 
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
 	console.log(`Request Queue "${name}" before the crawl start:` );
@@ -157,7 +171,7 @@ Apify.main(async () => {
 						//console.log('Success to log in!');
 					} catch(e){ console.log('Error setting cookies:', e); }
 				} 	
-				await page.goto(request.url, { timeout: 60000 });
+				await page.goto(request.url, { timeout: 80000 });
 			} catch (error){
 				console.log('\nPage request error:', error);
 			};  
@@ -418,14 +432,14 @@ Apify.main(async () => {
 		console.log('\nDeleting requestQueue');
 		await requestQueue.delete();
 	}
-	
+	/*
 	// write total_page_links into file 
 	var json = JSON.stringify(total_page_links);
 	//fs.writeFile('total_page_links.json', json, 'utf8');
 	fs.writeFile("total_page_links.json", JSON.stringify(total_page_links, null, 4), (err) => {
 		if (err) {  console.error(err);  return; };
 		console.log("File 'total_page_links.json' has been created");
-	});
+	});*/
 	
 	// print final queue
 	var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
