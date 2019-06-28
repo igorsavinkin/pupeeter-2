@@ -68,6 +68,7 @@ Apify.main(async () => {
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
 	const short_link_regex = /\/companies\/[\w|-]+/g; 
 	var page_content='';
+	var companies_for_base_search_page = 0;
 	var total_companies = 0;
 	var base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords='	
 	var counter = 0;	
@@ -86,17 +87,19 @@ Apify.main(async () => {
 	 
 	
 	// add request urls from input.zero_pages_search_file 
-	if (input.zero_pages_search_file){	
-		console.log(`Reading file with zero pages ${input.zero_pages_search_file}`);	
-		let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
-		let urls = contents.split('\n');
-		console.log(`Urls from file to be added to queue (${urls.length})\n`, urls); 
-		let i;
-		for (i = 0; i < urls.length; i++) {  	
-			requestQueue.addRequest({ url: urls[i].trim() });
-		} 
-		console.log(`${i} url(s) been added from the file.`);
-	}
+	try{
+		if (input.zero_pages_search_file){	
+			console.log(`Reading file with zero pages ${input.zero_pages_search_file}`);	
+			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
+			let urls = contents.split('\n');
+			console.log(`Urls from file to be added to queue (${urls.length})\n`, urls); 
+			let i;
+			for (i = 0; i < urls.length; i++) {  	
+				requestQueue.addRequest({ url: urls[i].trim() });
+			} 
+			console.log(`${i} url(s) been added from the file.`);
+		}
+	} catch (e) { console.log('Error reading file with zero pages:',e); }
 	//process.exit();
 	/*
 	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	 
@@ -150,8 +153,8 @@ Apify.main(async () => {
 					try{	 
 						//await set_cookie(page);
 						// console.log('Cookie is set for log-in!');
-						await login_page(page, account.username, account.password, input.cookieFile);	
-						console.log('Success to log in!');
+						await login_page(page, account.username, account.password);	
+						//console.log('Success to log in!');
 					} catch(e){ console.log('Error setting cookies:', e); }
 				} 	
 				await page.goto(request.url, { timeout: 60000 });
@@ -167,7 +170,7 @@ Apify.main(async () => {
 
 			if (request.url.includes('/search/companies')) { // processing search page
 				console.log(' --- processing a search page');			
-				if (!request.url.includes('&page=')){ // if this is an initial request
+				if (!request.url.includes('&page=')){ // if this is an initial request/base search page
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 						let companies_num = await (await result.getProperty('textContent')).jsonValue();
@@ -176,6 +179,7 @@ Apify.main(async () => {
 						if (!amount && companies_num.includes('One company')) { amount=1; }
 						if (amount){
 							console.log('\nFound amount:', amount);
+							companies_for_base_search_page = amount;
 							total_companies += amount;				
 						} else {
 							console.log('Amount is empty.'); 
@@ -183,10 +187,11 @@ Apify.main(async () => {
 					} catch(error){
 						console.log(`\nNo companies number found for ${request.url}:\n` , error);
 					} 
+					console.log('Companies for base search page: ', companies_for_base_search_page);
 					console.log('Total companies found: ', total_companies, '\n ******************');
-					if (  total_companies > 10) { // we create paging sub-requests 
-						let max_page = total_companies > 300 ? 30 : Math.ceil(total_companies / 10); 
-						if (max_page*10 < total_companies) {
+					if (  companies_for_base_search_page > 10) { // we create paging sub-requests 
+						let max_page = companies_for_base_search_page > 300 ? 30 : Math.ceil(companies_for_base_search_page / 10); 
+						if (max_page*10 < companies_for_base_search_page) {
 							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
 							oversise_req[request.url.split('?')[1]]=total_companies;
 							fs.appendFile(input.oversized_search_file, '\n'+request.url , function (err) {
@@ -431,7 +436,8 @@ Apify.main(async () => {
 	console.log('************\nEmpty requests:', empty_req);
 	console.log('Oversized requests:', oversise_req);
 	console.log('\n******** Results ********');
-	console.log(' Final total companies: ', total_companies); 
+	console.log(' Found total companies: ', total_companies); 
+	console.log(' Found total links:', total_page_links.size);
 	
 	const data = await dataset.getData().then((response) => response.items);
 	await Apify.setValue(input.output, data);

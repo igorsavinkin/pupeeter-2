@@ -33,25 +33,26 @@ async function login_page(page, username="", password="", cookieFile="") {
 		page.waitForNavigation({ waitUntil: 'networkidle0' }),
 		console.log('Success to log in!')
 	]).catch(e => console.log('Click error:', e));
-	
-	// Save Session Cookies
-	const cookiesObject = await page.cookies();
-	const jsonfile = require('jsonfile');
-	if (!cookieFile){
-		const config = require('./config.js');
-		config.cookieFile = config.cookieFile;
+	if (cookieFile){
+		// Save Session Cookies
+		const cookiesObject = await page.cookies();
+		const jsonfile = require('jsonfile');
+		/*if (!cookieFile){
+			const config = require('./config.js');
+			config.cookieFile = config.cookieFile;
+		}*/
+		cookiesFilePath = __dirname.split('/').pop() + path.sep +  cookieFile; 
+		//console.log('cookiesFilePath:', cookiesFilePath);
+		// Write cookies to config.cookieFile to be used in other profile sessions.
+		jsonfile.writeFile(cookiesFilePath, cookiesObject, { spaces: 2 },
+			function(err) { 
+				if (err){
+					console.log('Failure!\nThe json session file could not be written.', err);
+				} else {
+					console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
+				}
+			});
 	}
-	cookiesFilePath = __dirname.split('/').pop() + path.sep +  cookieFile; 
-	//console.log('cookiesFilePath:', cookiesFilePath);
-	// Write cookies to config.cookieFile to be used in other profile sessions.
-	jsonfile.writeFile(cookiesFilePath, cookiesObject, { spaces: 2 },
-		function(err) { 
-			if (err){
-				console.log('Failure!\nThe json session file could not be written.', err);
-			} else {
-				console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
-			}
-		});
 }
 
 async function login(username="", password="", cookieFile="cookies.json", close_browser=1, slow_down_ms=50) {
