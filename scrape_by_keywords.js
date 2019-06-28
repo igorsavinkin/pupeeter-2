@@ -183,7 +183,13 @@ Apify.main(async () => {
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
-				console.log(' --- processing a search page');			
+				console.log(' --- processing a search page');	
+				// we need to wait till 				
+				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
+				while (await page.$('div.ResultsOverview-style-title-8d816f3f').includes('Working on it')){
+					await page.waitFor( 1 );
+					console.log('We wait 1 sec. since "Working on it" is at it.');
+				}				
 				if (!request.url.includes('&page=')){ // if this is an initial request/base search page
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
