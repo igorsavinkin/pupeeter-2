@@ -30,13 +30,15 @@ async function printRequestQueue(RequestQueue){
 
 function addLinksToRequestQueue(links, requestQueue){
 	for (elem of links) {
-		let name = elem.split('/companies/')[1];
-		if (!['search', 'icons', 'industries', 'img', 'scraping'].includes(name) 
-			&& !name.startsWith("application-")
+		//let name = elem.split('/companies/')[1];
+		if (!['search', 'icons', 'industries', 'img', 'scraping',
+		"application-", "statistics-", "draggable-"].includes(elem) 
+			/*&& !name.startsWith("application-")
 			&& !name.startsWith("statistics-")		
-			&& !name.startsWith("draggable-")){
+			&& !name.startsWith("draggable-")*/ 
+			){
 			requestQueue.addRequest({ url: elem });
-			//console.log('added:', elem);
+			//console.log(' - added:', elem);
 		} else {
 			//console.log('NOT added - ', elem);
 		}
@@ -64,9 +66,13 @@ Apify.main(async () => {
 	
 	// utility variables
 	var links_found = {};
+	var links_found2 = {};
 	var links_found_short = {};
+	var links_found_short2 = {};
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
+	const link_regex2 = /(https:\/\/www\.xing\.com\/company\/[\w|-]+)/g;
 	const short_link_regex = /\/companies\/[\w|-]+/g; 
+	const short_link_regex2 = /\/companies\/[\w|-]+/g;
 	var page_content='';
 	var companies_for_base_search_page = 0;
 	var total_companies = 0;
@@ -117,12 +123,12 @@ Apify.main(async () => {
 	// add request urls from input based on letters
 	if (input.letters){		
 		let letters = input.letters.split(',');
-		console.log(`Adding requests from input letters (${letters.length}).`);
+		console.log(`\nAdding requests from input letters (${letters.length}).`);
 		console.log('letters:', letters); 
 		let i;
 		for (i = 0; i < letters.length  ; i++) {  	
 			let url = base_req + letters[i].trim();
-			console.log('url from a letter:', url); 
+			//console.log('url from a letter:', url); 
 			await requestQueue.addRequest({ url: url });
 		} 
 		console.log(`${i} url(s) been added from letters input.`);
@@ -186,15 +192,20 @@ Apify.main(async () => {
 				console.log(' --- processing a search page');	
 				// we need to wait till 				
 				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
-				while (await page.$('div.ResultsOverview-style-title-8d816f3f').includes('Working on it')){
-					await page.waitFor( 1 );
-					console.log('We wait 1 sec. since "Working on it" is at it.');
-				}				
+				do {
+				    var result = await page.$('div.ResultsOverview-style-title-8d816f3f');
+					var companies_num = await (await result.getProperty('textContent')).jsonValue();
+					await page.waitFor( 0.5 );
+					console.log('\nWe wait 0.5 sec. since "Working on it" is present.');
+					console.log('companies_num:', companies_num);
+				} while ( companies_num.includes('Working on it'));
+				console.log('after loop, companies_num:', companies_num);	
+				
 				if (!request.url.includes('&page=')){ // if this is an initial request/base search page
 					try { // we gather the total companies number
-						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
-						let companies_num = await (await result.getProperty('textContent')).jsonValue();
-						//console.log('\n comp number:', companies_num);
+						//let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
+						//let companies_num = await (await result.getProperty('textContent')).jsonValue();
+						console.log('\n comp number:', companies_num);
 						let amount = parseInt(companies_num.replace(',', ''));				
 						if (!amount && companies_num.includes('One company')) { amount=1; }
 						if (amount){
@@ -227,16 +238,29 @@ Apify.main(async () => {
 					}
 				}
 				// gather company links
-				page_content = await page.content();
+				//await page.reload();
+				var page_content = await page.content();
+				/*fs.writeFile("temp_page_content.html", page_content, (err) => {
+				    if (err) console.log(err);
+				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
+				});*/  
 				links_found  =  findAll(link_regex, page_content);
-				links_found_short  =  findAll(short_link_regex, page_content);  			
+				links_found2  =  findAll(link_regex2, page_content);
+				links_found_short  =  findAll(short_link_regex, page_content);  
+				links_found_short2  =  findAll(short_link_regex2, page_content); 				
 				
 				for (elem of links_found_short) {
 					links_found.add('https://www.xing.com'+elem);	 
 				} 
-				for (elem of links_found) {
-					// save link into the links_store
+				for (elem of links_found_short2) {
+					links_found2.add('https://www.xing.com'+elem);	 
+				}
+				for (elem of links_found) { 
 					total_page_links.add(elem);  
+				} 
+				for (elem of links_found2) { 
+					links_found.add(elem);
+					total_page_links.add(elem);			
 				} 
 				//await links_store.setValue('scraped_urls', links_found );
 				console.log('FOUND LINKS at "'+ request.url.split('?')[1] +'": (', links_found.size, ')\n', links_found );		
@@ -250,6 +274,7 @@ Apify.main(async () => {
 				}
 				// save company links into requestQueue
 				addLinksToRequestQueue(links_found, requestQueue); // The queue can only contain unique URLs.
+				//addLinksToRequestQueue(links_found2, requestQueue); 
 			
 			} else { // processing company page 
 				console.log(' --- processing a company page:', request.url.split('/companies')[1]);
