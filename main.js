@@ -27,12 +27,13 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 var account = {};
 var countries='';
-var countriesMap = new Map();
-var countriesMap = { 'germany': 2921044 ,'austria': 2782113 , 'switzerland': 2658434 };
-var categoriesMap = new Map();
-var categoriesMap = {'over_10000': 9 }; 
+var countriesMap = new Map([{ 'germany': 2921044 },{'austria': 2782113 },{ 'switzerland': 2658434 }]);
+//var countriesMap = ;
+var categoriesMap = new Map([{'over_10000': 9 }]);
+//var categoriesMap = ; 
 var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
 var get_parameters=''; 
+process.exit();
 
 process.argv.forEach(function (val, index, array) {
   console.log(index + ': ' + val);

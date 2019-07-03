@@ -9,7 +9,9 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 var empty_req = {};
 var oversise_req = {}; 
-
+var countriesMap = new Map([{ 'germany': 2921044 },{'austria': 2782113 },{ 'switzerland': 2658434 }]);
+var exclude_links_with =['search', 'icons', 'industries', '/img', 'scraping', "application-", "statistics-", "draggable-"];
+		
 function findAll(regexPattern, sourceString) { 
 	let _Set = new Set();
     let match
@@ -27,20 +29,25 @@ async function printRequestQueue(RequestQueue){
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
 }
-
+function check_link(elem) {
+	let check_flag=true;
+	exclude_links_with.forEach(function(item) { 
+		if (elem.includes(item)){
+			//console.log(elem ,' includes item of array ', item);
+			check_flag = false; 
+		}
+	});
+	return check_flag;
+}
 function addLinksToRequestQueue(links, requestQueue){
 	for (elem of links) {
-		//let name = elem.split('/companies/')[1];
-		if (!['search', 'icons', 'industries', 'img', 'scraping',
-		"application-", "statistics-", "draggable-"].includes(elem) 
-			/*&& !name.startsWith("application-")
-			&& !name.startsWith("statistics-")		
-			&& !name.startsWith("draggable-")*/ 
-			){
+		//let check_flag = true;
+		//check_flag = check_link(elem); 
+		if (check_link(elem)){
 			requestQueue.addRequest({ url: elem });
-			//console.log(' - added:', elem);
+			console.log(' - added:', elem);
 		} else {
-			//console.log('NOT added - ', elem);
+			console.log(` - Not added: ${elem}`);
 		}
 	}
 	return requestQueue;
@@ -69,6 +76,7 @@ Apify.main(async () => {
 	var links_found2 = {};
 	var links_found_short = {};
 	var links_found_short2 = {};
+	const main_link_regex = /(https:\/\/www\.xing\.com)?\/(company|companies)\/[\w|-]+/g;
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
 	const link_regex2 = /(https:\/\/www\.xing\.com\/company\/[\w|-]+)/g;
 	const short_link_regex = /\/companies\/[\w|-]+/g; 
@@ -244,7 +252,9 @@ Apify.main(async () => {
 				    if (err) console.log(err);
 				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
 				});*/  
-				links_found  =  findAll(link_regex, page_content);
+				links_found = findAll(main_link_regex, page_content);
+				
+				/*links_found  =  findAll(link_regex, page_content);
 				links_found2  =  findAll(link_regex2, page_content);
 				links_found_short  =  findAll(short_link_regex, page_content);  
 				links_found_short2  =  findAll(short_link_regex2, page_content); 				
@@ -262,6 +272,17 @@ Apify.main(async () => {
 					links_found.add(elem);
 					total_page_links.add(elem);			
 				} 
+				*/
+				for (elem of links_found) { 
+					if ( !elem.startsWith('https://www.xing.com')){
+						let new_elem = 'https://www.xing.com'+elem;
+						links_found.delete(elem);
+						links_found.add(new_elem);
+						total_page_links.add(new_elem);
+					} else {
+						total_page_links.add(elem);
+					}								
+				}
 				//await links_store.setValue('scraped_urls', links_found );
 				console.log('FOUND LINKS at "'+ request.url.split('?')[1] +'": (', links_found.size, ')\n', links_found );		
 				console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );	
@@ -481,8 +502,8 @@ Apify.main(async () => {
 	console.log('************\nEmpty requests:', empty_req);
 	console.log('Oversized requests:', oversise_req);
 	console.log('\n******** Results ********');
-	console.log(' Found total companies: ', total_companies); 
-	console.log(' Found total links:', total_page_links.size);
+	console.log('TOTAL COMPANY LINKS number: ', total_companies);  
+	console.log('TOTAL GATHERED LINKS number:', total_page_links.size  );
 	
 	const data = await dataset.getData().then((response) => response.items);
 	await Apify.setValue(input.output, data);
