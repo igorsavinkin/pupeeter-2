@@ -98,7 +98,7 @@ Apify.main(async () => {
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);	
-	 
+	
 	
 	// add request urls from input.zero_pages_search_file 
 	try{
@@ -160,6 +160,7 @@ Apify.main(async () => {
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
 	
+	console.log('\n Account number:', input.account_index,'\n');
 	//process.exit();
 	
 	// Open a named key-value store
@@ -200,7 +201,7 @@ Apify.main(async () => {
 				console.log(' --- processing a search page');	
 				// we need to wait till 				
 				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
-				do {
+				/*do {
 				    var result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 					var companies_num = await (await result.getProperty('textContent')).jsonValue();
 					await page.waitFor( 0.5 );
@@ -208,11 +209,11 @@ Apify.main(async () => {
 					console.log('companies_num:', companies_num);
 				} while ( companies_num.includes('Working on it'));
 				console.log('after loop, companies_num:', companies_num);	
-				
+				*/
 				if (!request.url.includes('&page=')){ // if this is an initial request/base search page
 					try { // we gather the total companies number
-						//let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
-						//let companies_num = await (await result.getProperty('textContent')).jsonValue();
+						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
+						let companies_num = await (await result.getProperty('textContent')).jsonValue();
 						console.log('\n comp number:', companies_num);
 						let amount = parseInt(companies_num.replace(',', ''));				
 						if (!amount && companies_num.includes('One company')) { amount=1; }
