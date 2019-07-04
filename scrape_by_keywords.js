@@ -91,7 +91,7 @@ Apify.main(async () => {
 	const dataset = await Apify.openDataset(dataset_name);
 	
 	// Open existing queue
-	console.log('Opening queue "${queue_name}"...');
+	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
 	console.log(`Init Request Queue "${name}" with init requests:` );
@@ -111,7 +111,7 @@ Apify.main(async () => {
 			for (i = 0; i < urls.length; i++) {  	
 				requestQueue.addRequest({ url: urls[i].trim() });
 			} 
-			console.log(`${i} url(s) been added from the file.`);
+			console.log(`${i} url(s) been added from the  zero pages file.`);
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 	//process.exit();
@@ -389,14 +389,29 @@ Apify.main(async () => {
 							let split1 = summary_text.split("Products and services");
 							if (typeof split1[1] !== 'undefined') {
 								product_services = split1[1].trim();  
-							} 				
+							} else {
+								split1 = summary_text.split("Produkte und Services");
+								if (typeof split1[1] !== 'undefined') {
+									product_services = split1[1].trim();  
+								}
+							}			
 							let split2 = split1[0].split("Industry");
 							if (typeof split2[1] !== 'undefined'){
 								industry = split2[1].trim(); 						
+							} else {
+								split2 = split1[0].split("Branche");
+								if (typeof split2[1] !== 'undefined') {
+									industry = split2[1].trim();  
+								}
 							}
-							let split3 = split2[0].split("Year of establishment")[0].split('Employees');
+							let split3 = split2[0].split("Year of establishment")[0].split('Employees'); 
 							if (typeof split3[1] !== 'undefined'){
 								employees_range = split3[1].trim().split(',').join(''); 						
+							} else {
+								split3 = split2[0].split("Gründungsjahr")[0].split('Unternehmensgröße');
+								if (typeof split3[1] !== 'undefined') {
+									employees_range = split3[1].trim().split(',').join('');  
+								}
 							}
 						} catch(e) {
 							//console.log('Failed to get "product_services" or "industry" fields. \nError:',e);

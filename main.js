@@ -33,7 +33,7 @@ var categoriesMap = new Map([{'over_10000': 9 }]);
 //var categoriesMap = ; 
 var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
 var get_parameters=''; 
-process.exit();
+//process.exit();
 
 process.argv.forEach(function (val, index, array) {
   console.log(index + ': ' + val);
@@ -128,6 +128,7 @@ Apify.main(async () => {
 	//process.exit();
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl);
+	const main_link_regex = /(https:\/\/www\.xing\.com)?\/(company|companies)\/[\w|-]+/g;
 	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
 	const short_link_regex = /\/companies\/[\w|-]+/g;
 	var links_found = {};
@@ -151,10 +152,12 @@ Apify.main(async () => {
 	//var companies_req = 'https://www.xing.com/search/companies?section=search&sc_o=companies_search_button' + get_parameters; //.substring(1);
 	//console.log('\ncompanies_req:', companies_req);
 	
-	const dataset = await Apify.openDataset('test_ds2');	
-    const requestQueue = await Apify.openRequestQueue('test_ds2');  
+	const dataset = await Apify.openDataset('test_dataset3');	
+    const requestQueue = await Apify.openRequestQueue('test_queue3');  
 	
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/4bag'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/companies/daimlerag'});
+	requestQueue.addRequest({ url: 'https://www.xing.com/companies/optimussearch'});
+	/*requestQueue.addRequest({ url: 'https://www.xing.com/companies/4bag'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-amggmbh'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/siselinternational'});
@@ -162,7 +165,7 @@ Apify.main(async () => {
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-benzcustomersolutionsgmbh'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/intel'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/murataelektronikgmbh'});
-	
+	*/
 	
 	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?section=search'});
     //requestQueue.addRequest({ url:  companies_req});
@@ -184,7 +187,7 @@ Apify.main(async () => {
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 15 } , 
+		launchPuppeteerOptions: { slowMo: 205 } , 
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login at the first request 
@@ -295,14 +298,29 @@ Apify.main(async () => {
 					let split1 = summary_text.split("Products and services");
 					if (typeof split1[1] !== 'undefined') {
 						product_services = split1[1].trim();  
-					} 				
+					} else {
+						split1 = summary_text.split("Produkte und Services");
+						if (typeof split1[1] !== 'undefined') {
+							product_services = split1[1].trim();  
+						}
+					}			
 					let split2 = split1[0].split("Industry");
 					if (typeof split2[1] !== 'undefined'){
 						industry = split2[1].trim(); 						
+					} else {
+						split2 = split1[0].split("Branche");
+						if (typeof split2[1] !== 'undefined') {
+							industry = split2[1].trim();  
+						}
 					}
-					let split3 = split2[0].split("Year of establishment")[0].split('Employees');
+					let split3 = split2[0].split("Year of establishment")[0].split('Employees'); 
 					if (typeof split3[1] !== 'undefined'){
 						employees_range = split3[1].trim().split(',').join(''); 						
+					} else {
+						split3 = split2[0].split("Gründungsjahr")[0].split('Unternehmensgröße');
+						if (typeof split3[1] !== 'undefined') {
+							employees_range = split3[1].trim().split(',').join('');  
+						}
 					}
 				} catch(e) {
 					//console.log('Failed to get "product_services" or "industry" fields. \nError:',e);
