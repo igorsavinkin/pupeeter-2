@@ -6,7 +6,7 @@ require('./login-xing.js');
 var login_flag = false;
 var total_page_links = new Set();
 var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
-var re_employees = new RegExp(/\d+,?\d+/);
+var re_employees = new RegExp(/\d+,?\.?\d+/);
 var empty_req = {};
 var oversise_req = {}; 
 var countriesMap = new Map([{ 'germany': 2921044 },{'austria': 2782113 },{ 'switzerland': 2658434 }]);
@@ -45,27 +45,21 @@ function addLinksToRequestQueue(links, requestQueue){
 		//check_flag = check_link(elem); 
 		if (check_link(elem)){
 			requestQueue.addRequest({ url: elem });
-			console.log(' - added:', elem);
+			//console.log(' - added:', elem);
 		} else {
-			console.log(` - Not added: ${elem}`);
+			//console.log(` - Not added: ${elem}`);
 		}
 	}
 	return requestQueue;
 }
 
 Apify.main(async () => {  
-	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
-	//const input = await Apify.getInput(); // https://sdk.apify.com/docs/api/apify#module_Apify.getInput
-	
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-ger-10000');
 	
 	var concurrency =  parseInt(input.concurrency);
 	var account = input.account[input.account_index];
-	//var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
-	//var alphabet = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
-	// process.exit();
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
 	var dataset_name  =  input.dataset_name;
@@ -77,16 +71,12 @@ Apify.main(async () => {
 	var links_found_short = {};
 	var links_found_short2 = {};
 	const main_link_regex = /(https:\/\/www\.xing\.com)?\/(company|companies)\/[\w|-]+/g;
-	const link_regex = /(https:\/\/www\.xing\.com\/companies\/[\w|-]+)/g;
-	const link_regex2 = /(https:\/\/www\.xing\.com\/company\/[\w|-]+)/g;
-	const short_link_regex = /\/companies\/[\w|-]+/g; 
-	const short_link_regex2 = /\/companies\/[\w|-]+/g;
 	var page_content='';
 	var companies_for_base_search_page = 0;
 	var total_companies = 0;
 	var base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords='	
 	var counter = 0;	
-	
+	var push_data = true;
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
 	
@@ -111,7 +101,7 @@ Apify.main(async () => {
 			for (i = 0; i < urls.length; i++) {  	
 				requestQueue.addRequest({ url: urls[i].trim() });
 			} 
-			console.log(`${i} url(s) been added from the  zero pages file.`);
+			console.log(`${i} url(s) been added from the zero pages file.`);
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 	//process.exit();
@@ -135,24 +125,23 @@ Apify.main(async () => {
 		console.log('letters:', letters); 
 		let i;
 		for (i = 0; i < letters.length  ; i++) {  	
-			let url = base_req + letters[i].trim();
-			//console.log('url from a letter:', url); 
+			let url = base_req + letters[i].trim(); 
 			await requestQueue.addRequest({ url: url });
 		} 
 		console.log(`${i} url(s) been added from letters input.`);
 	}
-	/*
+	
 	// add request urls from input
 	if (input.init_urls){		
 		let init_urls = input.init_urls.split(',');
 		console.log(`Adding requests from input init_urls (${init_urls.length}).`);
-		console.log('init_urls:', init_urls); 
+		//console.log('init_urls:', init_urls); 
 		let i;
 		for (i = 0; i < init_urls.length  ; i++) {  	
 			await requestQueue.addRequest({ url: init_urls[i].trim() });
 		} 
 		console.log(`${i} url(s) been added from input.`);
-	}*/
+	}
 	 
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
 	console.log(`Request Queue "${name}" before the crawl start:` );
@@ -215,14 +204,16 @@ Apify.main(async () => {
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 						let companies_num = await (await result.getProperty('textContent')).jsonValue();
 						console.log('\n comp number:', companies_num);
-						let amount = parseInt(companies_num.replace(',', ''));				
-						if (!amount && companies_num.includes('One company')) { amount=1; }
+						let amount = parseInt(companies_num.replace(',', '').replace('.', ''));				
+						if (!amount && (companies_num.includes('One company') || companies_num.includes('Ein Unternehmen')) ) { 
+							amount=1; 
+						}
 						if (amount){
 							console.log('\nFound amount:', amount);
 							companies_for_base_search_page = amount;
 							total_companies += amount;				
 						} else {
-							console.log('Amount is empty.'); 
+							console.log('Companies amount is empty.'); 
 						}
 					} catch(error){
 						console.log(`\nNo companies number found for ${request.url}:\n` , error);
@@ -254,26 +245,7 @@ Apify.main(async () => {
 				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
 				});*/  
 				links_found = findAll(main_link_regex, page_content);
-				
-				/*links_found  =  findAll(link_regex, page_content);
-				links_found2  =  findAll(link_regex2, page_content);
-				links_found_short  =  findAll(short_link_regex, page_content);  
-				links_found_short2  =  findAll(short_link_regex2, page_content); 				
-				
-				for (elem of links_found_short) {
-					links_found.add('https://www.xing.com'+elem);	 
-				} 
-				for (elem of links_found_short2) {
-					links_found2.add('https://www.xing.com'+elem);	 
-				}
-				for (elem of links_found) { 
-					total_page_links.add(elem);  
-				} 
-				for (elem of links_found2) { 
-					links_found.add(elem);
-					total_page_links.add(elem);			
-				} 
-				*/
+				 
 				for (elem of links_found) { 
 					if ( !elem.startsWith('https://www.xing.com')){
 						let new_elem = 'https://www.xing.com'+elem;
@@ -312,6 +284,7 @@ Apify.main(async () => {
 					}
 					if (company_name) { // get info from page's html and saving into dataset
 						// section
+						push_data = true;
 						var summary_text='';
 						try {
 							var summary_element = await page.$('section.facts'); // section.facts > dl > dd:nth-child(1) 
@@ -380,6 +353,11 @@ Apify.main(async () => {
 						try {
 							var website_element = await page.$('a[itemprop="url"]');
 							website = await (await website_element.getProperty('href')).jsonValue();
+							if ( website=='https://www.xing.com/' || website.toLowerCase()=='homepage'){ 
+								// we reclaim request								
+								requestQueue.reclaimRequest(request, {forefront : true});
+								push_data = false; // we do not push data into dataset
+							}
 						} catch(error){
 							console.log(`\nFailure to get website  for url: ${request.url}: `, error);
 						} 
@@ -411,7 +389,7 @@ Apify.main(async () => {
 							} else {
 								split3 = split2[0].split("Gründungsjahr")[0].split('Unternehmensgröße');
 								if (typeof split3[1] !== 'undefined') {
-									employees_range = split3[1].trim().split(',').join('');  
+									employees_range = split3[1].trim().split('.').join('');  
 								}
 							}
 						} catch(e) {
@@ -429,28 +407,30 @@ Apify.main(async () => {
 						if (employees){
 							try { employees_num = employees.match(re_employees)[0]; 
 								if (employees_num){
-									employees_num = employees_num.replace(',', '');
+									employees_num = employees_num.replace(',', '').replace('.', '');
 								} 
 							} catch(e){
 								//console.log('No employees number found.');
 							}
-						}						
-						await dataset.pushData({ 
-							url: request.url,
-							name: company_name,
-							turnover: turnover,
-							employees_num : employees_num,
-							employees_range : employees_range,
-							industry: industry,
-							product_services: product_services,					
-							street_address: street_address,
-							post_index: post_index,
-							city: city,
-							country: country,
-							phone: phone,
-							email: email,
-							website: website,		
-						});
+						}
+						if (push_data) { 						
+							await dataset.pushData({ 
+								url: request.url,
+								name: company_name,
+								turnover: turnover,
+								employees_num : employees_num,
+								employees_range : employees_range,
+								industry: industry,
+								product_services: product_services,					
+								street_address: street_address,
+								post_index: post_index,
+								city: city,
+								country: country,
+								phone: phone,
+								email: email,
+								website: website,		
+							});
+						}
 					}
 				} catch (e) { console.log(e); }				
 			}  			

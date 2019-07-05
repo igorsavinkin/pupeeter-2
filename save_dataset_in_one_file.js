@@ -1,7 +1,7 @@
 const Apify = require('apify'); 
 // default name of dataset and filename 
 var dataset_name= 'ger-10000+';
-var file_name = 'ger-10000';
+var file_name = 'OUTPUT-ger-10000';
 process.argv.forEach(function (val, index, array) {
   console.log(index + ': ' + val);
   if (index==2) { dataset_name = val  }
