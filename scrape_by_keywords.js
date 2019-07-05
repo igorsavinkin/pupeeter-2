@@ -9,14 +9,16 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\.?\d+/);
 var empty_req = {};
 var oversise_req = {}; 
-var countriesMap = new Map([{ 'germany': 2921044 },{'austria': 2782113 },{ 'switzerland': 2658434 }]);
+var countriesMap = new Map(); //[[ 'de', '2921044' ],['at', '2782113' ],[ 'ch', '2658434' ]]);
+countriesMap.set('at', '2782113');
+countriesMap.set( 'ch', '2658434');
 var exclude_links_with =['search', 'icons', 'industries', '/img', 'scraping', "application-", "statistics-", "draggable-"];
 		
 function findAll(regexPattern, sourceString) { 
 	let _Set = new Set();
     let match
     // make sure the pattern has the global flag
-    let regexPatternWithGlobal = RegExp(regexPattern,"g")
+    let regexPatternWithGlobal = RegExp(regexPattern, "g")
     while (match = regexPatternWithGlobal.exec(sourceString)) { 
 		_Set.add(match[0])
     } 
@@ -53,33 +55,59 @@ function addLinksToRequestQueue(links, requestQueue){
 	return requestQueue;
 }
 
+function randomInteger(min, max) {
+    var rand = min + Math.random() * (max + 1 - min);
+    return Math.floor(rand);
+  }
+
 Apify.main(async () => {  
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
-	const input = await store.getValue('INPUT-ger-10000');
+	const input = await store.getValue('INPUT-CH-AT-10000');
 	
 	var concurrency =  parseInt(input.concurrency);
-	var account = input.account[input.account_index];
+	var account_index = randomInteger(4,8);
+	var account = input.account[account_index]; // input.account_index];
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
 	var dataset_name  =  input.dataset_name;
 	var queue_name  =  input.queue_name;
+	var country_parameters='';
+	var empl_cat_parameters='';
+	var wrong_website_dict = {};
+	// get countries and employees size from INPUT
+	if ( input.hasOwnProperty('crawl') ) {
+		input.crawl.country.split(',').forEach(function (item, index) {
+			console.log(index, 'country:', item); //, index, countriesMap[item]);
+			country_parameters += '&filter.location[]=' + item; //countriesMap[item];
+		});
+		
+		input.crawl.empl_range.split(',').forEach(function (item, index) {
+			console.log(index, 'empl. range [category]:', input.crawl.empl_range);
+			empl_cat_parameters += '&filter.size[]=' + item; 
+		});
+	}
+	var init_base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button';
+	var base_req = init_base_req + country_parameters + empl_cat_parameters;
+	// &filter.location[]=2921044&filter.size[]=9&keywords='	
+	console.log('base_req:', base_req);
+	//process.exit();
+	
 	
 	// utility variables
 	var links_found = {};
 	var links_found2 = {};
 	var links_found_short = {};
 	var links_found_short2 = {};
-	const main_link_regex = /(https:\/\/www\.xing\.com)?\/(company|companies)\/[\w|-]+/g;
+	const main_link_regex = /(https:\/\/www\.xing\.com)?\/(company|companies)\/[%.\w|-]+/g;
 	var page_content='';
 	var companies_for_base_search_page = 0;
 	var total_companies = 0;
-	var base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords='	
 	var counter = 0;	
 	var push_data = true;
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
-	
+	const wrong_website_dataset = await Apify.openDataset('wrong-website_url');
 	// Open existing queue
 	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
@@ -104,18 +132,10 @@ Apify.main(async () => {
 			console.log(`${i} url(s) been added from the zero pages file.`);
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
-	//process.exit();
+
 	/*
 	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	 
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/mercedes-amggmbh'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=h&page=2'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=h&page=4'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=e&page=14'});/*requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=c'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=g'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=i'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=j'});
-	requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2921044&filter.size[]=9&keywords=k'});
 	*/
 	
 	// add request urls from input based on letters
@@ -125,7 +145,7 @@ Apify.main(async () => {
 		console.log('letters:', letters); 
 		let i;
 		for (i = 0; i < letters.length  ; i++) {  	
-			let url = base_req + letters[i].trim(); 
+			let url = base_req + "&keywords=" + letters[i].trim(); 
 			await requestQueue.addRequest({ url: url });
 		} 
 		console.log(`${i} url(s) been added from letters input.`);
@@ -148,8 +168,14 @@ Apify.main(async () => {
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
+	/*if (!totalRequestCount){
+		// we add base request
+		await requestQueue.addRequest({ url: base_req });		
+	}*/
 	
-	console.log('\n Account number:', input.account_index,'\n');
+	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2782113&filter.size[]=9'});
+	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2658434&filter.size[]=9'});
+	console.log('\n Account number, random:', account_index,'\n');
 	//process.exit();
 	
 	// Open a named key-value store
@@ -354,8 +380,12 @@ Apify.main(async () => {
 							var website_element = await page.$('a[itemprop="url"]');
 							website = await (await website_element.getProperty('href')).jsonValue();
 							if ( website=='https://www.xing.com/' || website.toLowerCase()=='homepage'){ 
-								// we reclaim request								
-								requestQueue.reclaimRequest(request, {forefront : true});
+								// we store wrong website value	 								
+								await wrong_website_dataset.pushData({ 
+									url: request.url, 
+									website: website
+								});
+								//requestQueue.reclaimRequest(request, {forefront : true});
 								push_data = false; // we do not push data into dataset
 							}
 						} catch(error){
@@ -497,6 +527,7 @@ Apify.main(async () => {
 	
 	console.log('************\nEmpty requests:', empty_req);
 	console.log('Oversized requests:', oversise_req);
+	
 	console.log('\n******** Results ********');
 	console.log('TOTAL COMPANY LINKS number: ', total_companies);  
 	console.log('TOTAL GATHERED LINKS number:', total_page_links.size  );

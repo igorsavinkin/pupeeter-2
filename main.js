@@ -27,7 +27,8 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 var account = {};
 var countries='';
-var countriesMap = new Map([{ 'germany': 2921044 },{'austria': 2782113 },{ 'switzerland': 2658434 }]);
+var countriesMap = new Map([[ 'germany': 2921044 ],['austria': 2782113 ],[ 'switzerland': 2658434 ]]);
+
 //var countriesMap = ;
 var categoriesMap = new Map([{'over_10000': 9 }]);
 //var categoriesMap = ; 
