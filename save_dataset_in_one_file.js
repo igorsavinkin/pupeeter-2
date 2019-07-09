@@ -1,7 +1,7 @@
 const Apify = require('apify'); 
 // default name of dataset and filename 
-var dataset_name= 'ger-10000+';
-var file_name = 'OUTPUT-ger-10000';
+var dataset_name= 'AT-CH-5K-10K';
+var file_name = 'OUTPUT-AT-CH-5K-10K-2';
 process.argv.forEach(function (val, index, array) {
   console.log(index + ': ' + val);
   if (index==2) { dataset_name = val  }
@@ -28,8 +28,8 @@ Apify.main(async () => {
 			});
 			
 			await Apify.setValue(file_name, data);
-			//await Apify.setValue(file_name+'_failed_items.txt', failed_items);
-			console.log(`${itemCount} items from dataset "${dataset_name}" are saved in "${file_name}" file.`);
+			await Apify.setValue(file_name+'_failed_items', failed_items);
+			console.log(`\n${itemCount} items from dataset "${dataset_name}" are saved in "${file_name}" file.`);
 			console.log(`${failed_items.size} failed items from dataset "${dataset_name}" are saved in "${file_name}_failed_items" file.`);
 		} else {
 			console.log(`Empty dataset "${dataset_name}".`);

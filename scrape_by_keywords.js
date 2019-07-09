@@ -64,9 +64,10 @@ function randomInteger(min, max) {
   }
 
 Apify.main(async () => {  
+	var base_name = 'DE-5K-10K';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
-	const input = await store.getValue('INPUT-DE-5K-10K');
+	const input = await store.getValue('INPUT-'+base_name);
 	console.log('input:', input);
 	
 	var concurrency =  parseInt(input.concurrency);
@@ -116,7 +117,7 @@ Apify.main(async () => {
 	var push_data = true;
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
-	const wrong_website_dataset = await Apify.openDataset('wrong-website_url');
+	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
 	// Open existing queue
 	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
@@ -394,7 +395,7 @@ Apify.main(async () => {
 						try {
 							var website_element = await page.$('a[itemprop="url"]');
 							website = await (await website_element.getProperty('href')).jsonValue();
-							if ( website=='https://www.xing.com/' || website.toLowerCase()=='homepage'){ 
+							if (website=='https://www.xing.com/' || website.toLowerCase()=='homepage'){ 
 								// we store wrong website value	 								
 								await wrong_website_dataset.pushData({ 
 									url: request.url, 
