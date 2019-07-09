@@ -24,6 +24,7 @@ function findAll(regexPattern, sourceString) {
     } 
     return _Set
 } 
+
 async function printRequestQueue(RequestQueue){
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
 	console.log(`Init Request Queue "${name}" with init requests:` );
@@ -31,6 +32,7 @@ async function printRequestQueue(RequestQueue){
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
 }
+
 function check_link(elem) {
 	let check_flag=true;
 	exclude_links_with.forEach(function(item) { 
@@ -41,6 +43,7 @@ function check_link(elem) {
 	});
 	return check_flag;
 }
+
 function addLinksToRequestQueue(links, requestQueue){
 	for (elem of links) {
 		//let check_flag = true;
@@ -63,10 +66,16 @@ function randomInteger(min, max) {
 Apify.main(async () => {  
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
-	const input = await store.getValue('INPUT-CH-AT-10000');
+	const input = await store.getValue('INPUT-DE-5K-10K');
+	console.log('input:', input);
 	
 	var concurrency =  parseInt(input.concurrency);
-	var account_index = randomInteger(4,8);
+	var account_index ='';
+	if (!input.account_index) {
+		account_index =	randomInteger(1,8);
+	} else {
+		account_index = input.account_index;
+	}	
 	var account = input.account[account_index]; // input.account_index];
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
 	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
@@ -75,6 +84,7 @@ Apify.main(async () => {
 	var country_parameters='';
 	var empl_cat_parameters='';
 	var wrong_website_dict = {};
+	
 	// get countries and employees size from INPUT
 	if ( input.hasOwnProperty('crawl') ) {
 		input.crawl.country.split(',').forEach(function (item, index) {
@@ -90,9 +100,8 @@ Apify.main(async () => {
 	var init_base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button';
 	var base_req = init_base_req + country_parameters + empl_cat_parameters;
 	// &filter.location[]=2921044&filter.size[]=9&keywords='	
-	console.log('base_req:', base_req);
+	console.log('base_req:', [base_req]);
 	//process.exit();
-	
 	
 	// utility variables
 	var links_found = {};
@@ -133,7 +142,7 @@ Apify.main(async () => {
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 
-	/*
+	/* add specific requests
 	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	 
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
 	*/
@@ -168,14 +177,16 @@ Apify.main(async () => {
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
-	/*if (!totalRequestCount){
+	
+	if (!pendingRequestCount){
 		// we add base request
-		await requestQueue.addRequest({ url: base_req });		
-	}*/
+		await requestQueue.addRequest({ url: base_req });
+		console.log('Added a base request:',  base_req);
+	}
 	
 	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2782113&filter.size[]=9'});
 	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2658434&filter.size[]=9'});
-	console.log('\n Account number, random:', account_index,'\n');
+	console.log('\n Account number:', account_index,'\n');
 	//process.exit();
 	
 	// Open a named key-value store
@@ -251,9 +262,13 @@ Apify.main(async () => {
 						if (max_page*10 < companies_for_base_search_page) {
 							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
 							oversise_req[request.url.split('?')[1]]=total_companies;
-							fs.appendFile(input.oversized_search_file, '\n'+request.url , function (err) {
-								if (err) {console.log(`Failure to save ${request.url} into ${input.oversized_search_file}`)}; 
-							});	
+							try{ 
+								fs.appendFile(input.oversized_search_file, '\n'+request.url , function (err) {
+									if (err) {console.log(`Failure to save ${request.url} into ${input.oversized_search_file}`)}; 
+								});	
+							} catch (e) {console.log(`Failure to write to "${input.oversized_search_file}"...\nPlease check if file exists.`);}	
+							
+							//total_companies += amount
 						}
 						console.log('paging sub-requests to ', request.url.split('?')[1]);
 						for (let i = 2; i <= max_page ; i++) { 
