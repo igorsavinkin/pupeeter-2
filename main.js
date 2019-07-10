@@ -27,10 +27,10 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\d+/);
 var account = {};
 var countries='';
-var countriesMap = new Map([[ 'germany': 2921044 ],['austria': 2782113 ],[ 'switzerland': 2658434 ]]);
+//var countriesMap = new Map([[ 'germany': 2921044 ],['austria': 2782113 ],[ 'switzerland': 2658434 ]]);
 
 //var countriesMap = ;
-var categoriesMap = new Map([{'over_10000': 9 }]);
+//var categoriesMap = new Map([{'over_10000': 9 }]);
 //var categoriesMap = ; 
 var syllables = ['BA','BE','BI','BO','BU','BY','CA','CE','CI','CO','CU','CY','DA','DE','DI','DO','DU','DY','FA','FE','FI','FO','FU','FY','GA','GE','GI','GO','GU','GY','HA','HE','HI','HO','HU','HY','JA','JE','JI','JO','JU','JY','KA','KE','KI','KO','KU','KY','LA','LE','LI','LO','LU','LY','MA','ME','MI', 'MO','MU','MY','NA','NE','NI','NO','NU','NY','PA','PE','PI','PO','PU','PY','QA','QE','QI','QO','QU','QY','RA','RE','RI','RO','RU','RY','SA','SE','SI','SO','SU','SY','TA','TE','TI','TO','TU','TY','VA','VE','VI','VO','VU','VY','WA','WE','WI','WO','WU','WY','XA','XE','XI','XO','XU','XY' ].reverse();
 var get_parameters=''; 
@@ -106,7 +106,7 @@ function addLinksToRequestQueue(links, requestQueue){
 }
 Apify.main(async () => { 
 	const store = await Apify.openKeyValueStore('default');
-	const input = await store.getValue('INPUT-ge');
+	const input = await store.getValue('INPUT');
 	//console.log('\ncustom input:', input);
 	//process.exit(); 
 	// init variables from INPUT json file - apify_storage/key_value_stores/default/INPUT.json
@@ -141,7 +141,7 @@ Apify.main(async () => {
 	if ( input.hasOwnProperty('crawl') ) {
 		input.crawl.country.split(',').forEach(function (item, index) {
 			console.log(index, 'country:', item); //, index, countriesMap[item]);
-			get_parameters += '&filter.location[]=' + countriesMap[item];
+			get_parameters += '&filter.location[]=' +  item;
 		});
 		
 		input.crawl.empl_range.split(',').forEach(function (item, index) {
@@ -153,8 +153,8 @@ Apify.main(async () => {
 	//var companies_req = 'https://www.xing.com/search/companies?section=search&sc_o=companies_search_button' + get_parameters; //.substring(1);
 	//console.log('\ncompanies_req:', companies_req);
 	
-	const dataset = await Apify.openDataset('test_dataset3');	
-    const requestQueue = await Apify.openRequestQueue('test_queue3');  
+	const dataset = await Apify.openDataset('test_dataset4');	
+    const requestQueue = await Apify.openRequestQueue('test_queue4');  
 	
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/daimlerag'});
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/optimussearch'});
@@ -188,13 +188,17 @@ Apify.main(async () => {
         requestQueue, 
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 205 } , 
+		launchPuppeteerOptions: { slowMo: 205 },
+		retireInstanceAfterRequestCount: 700,
 		gotoFunction: async ({ request, page }) => { 			
 			try { 
 			    if (!login_flag) { // we login at the first request 
 					//await set_cookie(page);
 					await login_page(page, account.username, account.password, input.cookieFile);
-					//console.log('Cookie is set for log-in!');					
+					//console.log('Cookie is set for log-in!');		
+					// Get cookies
+					const cookies = await page.cookies();
+					console.log(cookies);
 				} 	
 				await page.goto(request.url, { timeout: 60000 });
 			} catch (error){

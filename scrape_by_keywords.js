@@ -64,7 +64,7 @@ function randomInteger(min, max) {
   }
 
 Apify.main(async () => {  
-	var base_name = 'DE-5K-10K';
+	var base_name = 'AT-CH-1K-5K';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
@@ -73,7 +73,7 @@ Apify.main(async () => {
 	var concurrency =  parseInt(input.concurrency);
 	var account_index ='';
 	if (!input.account_index) {
-		account_index =	randomInteger(1,8);
+		account_index =	randomInteger(0,8);
 	} else {
 		account_index = input.account_index;
 	}	
@@ -182,7 +182,7 @@ Apify.main(async () => {
 	if (!pendingRequestCount){
 		// we add base request
 		await requestQueue.addRequest({ url: base_req });
-		console.log('Added a base request:',  base_req);
+		console.log('\nAdded a base request:',  base_req);
 	}
 	
 	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2782113&filter.size[]=9'});
@@ -200,26 +200,46 @@ Apify.main(async () => {
     	
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
+		retireInstanceAfterRequestCount: 700,
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
 		launchPuppeteerOptions: { slowMo: 50 } , 
-		gotoFunction: async ({ request, page }) => { 			
-			try { 
-			    if (!login_flag) { // we login until the `login_flag` is off/false 			
-					try{	 
-						//await set_cookie(page);
-						// console.log('Cookie is set for log-in!');
-						await login_page(page, account.username, account.password);	
-						//console.log('Success to log in!');
-					} catch(e){ console.log('Error setting cookies:', e); }
-				} 	
-				await page.goto(request.url, { timeout: 80000 });
-			} catch (error){
-				console.log('\nPage request error:', error);
-			};  
+		gotoFunction: async ({ request, page, puppeteerPool }) => {
+			if (!login_flag) { // we login until the `login_flag` is off/false 			
+				try{	 
+					//await set_cookie(page);
+					// console.log('Cookie is set for log-in!');
+					await login_page(page, account.username, account.password);	
+					//console.log('Success to log in!');
+				} catch(e){ console.log('Error setting cookies:', e); }
+			} 	
+			//await page.goto(request.url, { timeout: 80000 });
+			const response = page.goto(request.url, { timeout: 70000 }).catch(() => null);
+			if (!response) {
+				//await puppeteerPool.retire(page.browser());				
+				throw new Error(`Page didn't load properly for ${request.url}`);
+			}
+			return response;			 
 		},
-        handlePageFunction: async ({ request, page }) => {
+        handlePageFunction: async ({ request, page, puppeteerPool }) => {
 			if (!login_flag) { login_flag = true; }
+			if (page.url().includes('login.')) {
+                //await puppeteerPool.retire(page.browser());
+				console.log(' --- Failed page url:', page.url() );
+				//trying to relogin
+				await page.type('input[name="password"]', account.password);
+				await Promise.all([
+					page.evaluate(() => {
+						document.getElementsByTagName('button')[1].click();
+					}),		
+					page.waitForNavigation({ waitUntil: 'networkidle0' }),
+					console.log('Success to re-log in!!!')
+				]).catch(e => console.log('Click error:', e));
+				//login_flag = false;
+                //throw new Error(`\n --- We have to login again for ${request.url}`);
+				 
+				//await login_page(page, account.username, account.password);	
+            }
 			counter+=1
 			console.log(`***********************\n ${counter}. Page:`, request.url.split('/companies')[1]);
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
