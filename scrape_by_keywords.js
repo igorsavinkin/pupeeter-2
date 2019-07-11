@@ -9,9 +9,6 @@ var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\.?\d+/);
 var empty_req = {};
 var oversise_req = {}; 
-var countriesMap = new Map(); //[[ 'de', '2921044' ],['at', '2782113' ],[ 'ch', '2658434' ]]);
-countriesMap.set('at', '2782113');
-countriesMap.set( 'ch', '2658434');
 var exclude_links_with =['search', 'icons', 'industries', '/img', 'scraping', "application-", "statistics-", "draggable-"];
 		
 function findAll(regexPattern, sourceString) { 
@@ -64,7 +61,7 @@ function randomInteger(min, max) {
   }
 
 Apify.main(async () => {  
-	var base_name = 'AT-CH-1K-5K';
+	var base_name = 'DE-1K-5K';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
@@ -99,8 +96,7 @@ Apify.main(async () => {
 		});
 	}
 	var init_base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button';
-	var base_req = init_base_req + country_parameters + empl_cat_parameters;
-	// &filter.location[]=2921044&filter.size[]=9&keywords='	
+	var base_req = init_base_req + country_parameters + empl_cat_parameters;	
 	console.log('base_req:', [base_req]);
 	//process.exit();
 	
@@ -121,15 +117,14 @@ Apify.main(async () => {
 	// Open existing queue
 	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
+	// queue info
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
 	console.log(`Init Request Queue "${name}" with init requests:` );
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
-	console.log(' totalRequestCount:'  , totalRequestCount);	
+	console.log(' totalRequestCount:'  , totalRequestCount);		
 	
-	
-	// add request urls from input.zero_pages_search_file 
-	try{
+	try{ // add request urls from input.zero_pages_search_file 
 		if (input.zero_pages_search_file){	
 			console.log(`Reading file with zero pages ${input.zero_pages_search_file}`);	
 			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
@@ -179,20 +174,13 @@ Apify.main(async () => {
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
 	
-	if (!pendingRequestCount){
-		// we add base request
+	if (!pendingRequestCount){// we add base request		
 		await requestQueue.addRequest({ url: base_req });
 		console.log('\nAdded a base request:',  base_req);
 	}
 	
-	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2782113&filter.size[]=9'});
-	//requestQueue.addRequest({ url: 'https://www.xing.com/search/companies?sc_o=companies_search_button&filter.location[]=2658434&filter.size[]=9'});
 	console.log('\n Account number:', account_index,'\n');
-	//process.exit();
-	
-	// Open a named key-value store
-    //const links_store = await Apify.openKeyValueStore('links_store');
-	
+
     // we login before the crawler run to get fresh cookies written into file
 	//console.log('Start logging-in...');
 	//await login(account.username, account.password, input.cookieFile, 1);
@@ -200,7 +188,7 @@ Apify.main(async () => {
     	
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue, 
-		retireInstanceAfterRequestCount: 700,
+		retireInstanceAfterRequestCount: input.retireInstanceAfterRequestCount,
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
 		launchPuppeteerOptions: { slowMo: 50 } , 
@@ -227,14 +215,15 @@ Apify.main(async () => {
                 //await puppeteerPool.retire(page.browser());
 				console.log(' --- Failed page url:', page.url() );
 				//trying to relogin
+				await page.type('input[name="username"]', account.username);
 				await page.type('input[name="password"]', account.password);
 				await Promise.all([
 					page.evaluate(() => {
 						document.getElementsByTagName('button')[1].click();
 					}),		
 					page.waitForNavigation({ waitUntil: 'networkidle0' }),
-					console.log('Success to re-log in!!!')
-				]).catch(e => console.log('Click error:', e));
+					console.log('Success to re-login!!!')
+				]).catch(e => console.log('Re-login error:', e));
 				//login_flag = false;
                 //throw new Error(`\n --- We have to login again for ${request.url}`);
 				 
