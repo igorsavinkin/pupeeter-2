@@ -61,7 +61,7 @@ function randomInteger(min, max) {
   }
 
 Apify.main(async () => {  
-	var base_name = 'DE-1K-5K';
+	var base_name = 'DE-500-1K';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
@@ -70,7 +70,11 @@ Apify.main(async () => {
 	var concurrency =  parseInt(input.concurrency);
 	var account_index ='';
 	if (!input.account_index) {
-		account_index =	randomInteger(0,8);
+		var exceptions=[];
+		do {
+			account_index =	randomInteger(0,8)
+		} 
+		while exceptions.inculude(account_index);
 	} else {
 		account_index = input.account_index;
 	}	
@@ -84,20 +88,24 @@ Apify.main(async () => {
 	var wrong_website_dict = {};
 	
 	// get countries and employees size from INPUT
-	if ( input.hasOwnProperty('crawl') ) {
-		input.crawl.country.split(',').forEach(function (item, index) {
-			console.log(index, 'country:', item); //, index, countriesMap[item]);
-			country_parameters += '&filter.location[]=' + item; //countriesMap[item];
-		});
-		
+	if ( input.hasOwnProperty('crawl') ) { 		
 		input.crawl.empl_range.split(',').forEach(function (item, index) {
 			console.log(index, 'empl. range [category]:', input.crawl.empl_range);
 			empl_cat_parameters += '&filter.size[]=' + item; 
-		});
+		});	
+		if (input.crawl.country) {
+			input.crawl.country.split(',').forEach(function (item, index) {
+				console.log(index, 'country:', item); //, index, countriesMap[item]);
+				country_parameters += '&filter.location[]=' + item; //countriesMap[item];
+			});
+		}		
 	}
+	 
 	var init_base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button';
 	var base_req = init_base_req + country_parameters + empl_cat_parameters;	
+	var base_req_land = init_base_req + empl_cat_parameters;
 	console.log('base_req:', [base_req]);
+	console.log('base_req_land:', [base_req_land]);
 	//process.exit();
 	
 	// utility variables
@@ -129,10 +137,11 @@ Apify.main(async () => {
 			console.log(`Reading file with zero pages ${input.zero_pages_search_file}`);	
 			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
 			let urls = contents.split('\n');
-			console.log(`Urls from file to be added to queue (${urls.length})\n`, urls); 
+			console.log(`Urls from the file to be added to queue (${urls.length})\n`, urls); 
 			let i;
-			for (i = 0; i < urls.length; i++) {  	
-				requestQueue.addRequest({ url: urls[i].trim() });
+			for (i = 0; i < urls.length; i++) { 
+				if (urls[i]):
+					requestQueue.addRequest({ url: urls[i].trim() });
 			} 
 			console.log(`${i} url(s) been added from the zero pages file.`);
 		}
@@ -142,18 +151,42 @@ Apify.main(async () => {
 	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	 
 	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
 	*/
-	
+	if (input.crawl.landern){		
+		let landern = input.crawl.landern.split(',');
+		console.log(`\nAdding requests from input Deutsch landern (${landern.length}).`);
+		console.log('landern indexes:', landern); 
+		let i;		
+		for (i = 0; i < landern.length  ; i++) {  	
+			let url = base_req_land + "&filter.location[]=" + landern[i].trim(); 
+			await requestQueue.addRequest({ url: url });
+		} 
+		console.log(`\n${i} url(s) been added from 'landern' input.`);
+	}
 	// add request urls from input based on letters
 	if (input.letters){		
 		let letters = input.letters.split(',');
 		console.log(`\nAdding requests from input letters (${letters.length}).`);
-		console.log('letters:', letters); 
+		//console.log('letters:', letters); 
 		let i;
 		for (i = 0; i < letters.length  ; i++) {  	
 			let url = base_req + "&keywords=" + letters[i].trim(); 
 			await requestQueue.addRequest({ url: url });
 		} 
-		console.log(`${i} url(s) been added from letters input.`);
+		console.log(`\n${i} url(s) been added from letters input.`);
+		if (input.landern_with_letters) {
+			let counter=0;
+			let i,j;
+			let landern_with_letters = input.landern_with_letters.split(',');
+			for (i = 0; i < landern_with_letters.length  ; i++) { 
+				for (j = 0; j < letters.length  ; j++) {  	
+					let url = base_req_land + "&filter.location[]=" + landern[i].trim()
+					url += "&keywords=" + letters[j].trim(); 
+					await requestQueue.addRequest({ url: url });
+					counter+=1;
+1				} 	 
+			}
+			console.log(`\n${counter} url(s) have been added from landern_with_letters & letters input.`);
+		}
 	}
 	
 	// add request urls from input
@@ -176,7 +209,7 @@ Apify.main(async () => {
 	
 	if (!pendingRequestCount){// we add base request		
 		await requestQueue.addRequest({ url: base_req });
-		console.log('\nAdded a base request:',  base_req);
+		console.log('\n Added a BASE REQUEST:', [base_req.split('/sc_o=companies_search_button')[1]]);
 	}
 	
 	console.log('\n Account number:', account_index,'\n');
@@ -213,7 +246,8 @@ Apify.main(async () => {
 			if (!login_flag) { login_flag = true; }
 			if (page.url().includes('login.')) {
                 //await puppeteerPool.retire(page.browser());
-				console.log(' --- Failed page url:', page.url() );
+				console.log('\n --- Failed page url:\n ', page.url().split('?')[1]);
+				console.log('Trying to relogin...');
 				//trying to relogin
 				await page.type('input[name="username"]', account.username);
 				await page.type('input[name="password"]', account.password);
@@ -493,33 +527,7 @@ Apify.main(async () => {
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
 			console.log(' pending:', pendingRequestCount);
-			console.log(' total:'  , totalRequestCount);
-			
-			/*if (syllables) { 
-				let syl = syllables.pop()
-				let url = base_req + syl;
-				//console.log('url:', url.split('/search/')[1]);
-				requestQueue.addRequest({ url: url});
-				console.log('Added an url with keyword:', syl);
-				console.log('Syllables left:', syllables.length);
-			} else {
-				console.log('\nFinal total companies: ', total_companies);
-				process.exit();
-			}	*/	
-			/*
-						
-			if (alphabet) { // new requests based on  keywords
-				let al = alphabet.pop()
-				let url = base_req + al;
-				//console.log('url:', url.split('/search/')[1]);
-				requestQueue.addRequest({ url: url});
-				console.log('Added an url with keyword:', al);
-				console.log('alphabet left:', alphabet.length);
-			} else {
-				console.log('\nFinal total companies: ', total_companies);
-				process.exit();
-			}*/
-			//await printRequestQueue(requestQueue);
+			console.log(' total:'  , totalRequestCount);		
         },
         handleFailedRequestFunction: async ({ request }) => {
             console.log(`Request ${request.url} failed too many times`);
