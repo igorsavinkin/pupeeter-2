@@ -61,20 +61,20 @@ function randomInteger(min, max) {
   }
 
 Apify.main(async () => {  
-	var base_name = 'DE-500-1K';
+	var base_name = 'AT-CH-500-1K';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
-	console.log('input:', input);
+	//console.log('input:', input);
 	
 	var concurrency =  parseInt(input.concurrency);
 	var account_index ='';
 	if (!input.account_index) {
-		var exceptions=[];
+		let exceptions=[3,5,9];
 		do {
-			account_index =	randomInteger(0,8)
+			account_index =	randomInteger(0,9)
 		} 
-		while exceptions.inculude(account_index);
+		while (exceptions.includes(account_index))
 	} else {
 		account_index = input.account_index;
 	}	
@@ -134,23 +134,21 @@ Apify.main(async () => {
 	
 	try{ // add request urls from input.zero_pages_search_file 
 		if (input.zero_pages_search_file){	
-			console.log(`Reading file with zero pages ${input.zero_pages_search_file}`);	
+			//console.log(`Reading file with zero pages` );	
 			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
 			let urls = contents.split('\n');
-			console.log(`Urls from the file to be added to queue (${urls.length})\n`, urls); 
-			let i;
+			console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
+			let i,counter=0;
 			for (i = 0; i < urls.length; i++) { 
-				if (urls[i]):
+				if (urls[i]){
 					requestQueue.addRequest({ url: urls[i].trim() });
+					counter+=0;
+				}
 			} 
-			console.log(`${i} url(s) been added from the zero pages file.`);
+			console.log(`${counter} url(s) been added from the zero pages file.`);
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 
-	/* add specific requests
-	requestQueue.addRequest({ url: 'https://www.xing.com/signup?login=1'});	 
-	requestQueue.addRequest({ url: 'https://www.xing.com/companies/iav'});
-	*/
 	if (input.crawl.landern){		
 		let landern = input.crawl.landern.split(',');
 		console.log(`\nAdding requests from input Deutsch landern (${landern.length}).`);
@@ -160,7 +158,7 @@ Apify.main(async () => {
 			let url = base_req_land + "&filter.location[]=" + landern[i].trim(); 
 			await requestQueue.addRequest({ url: url });
 		} 
-		console.log(`\n${i} url(s) been added from 'landern' input.`);
+		console.log(`${i} url(s) been added from 'landern' input.`);
 	}
 	// add request urls from input based on letters
 	if (input.letters){		
@@ -172,7 +170,8 @@ Apify.main(async () => {
 			let url = base_req + "&keywords=" + letters[i].trim(); 
 			await requestQueue.addRequest({ url: url });
 		} 
-		console.log(`\n${i} url(s) been added from letters input.`);
+		console.log(`${i} url(s) been added from letters input.`);
+		// landern composed with letters
 		if (input.landern_with_letters) {
 			let counter=0;
 			let i,j;
@@ -185,11 +184,11 @@ Apify.main(async () => {
 					counter+=1;
 1				} 	 
 			}
-			console.log(`\n${counter} url(s) have been added from landern_with_letters & letters input.`);
+			console.log(`\n${counter} url(s) have been added from 'landern_with_letters' input composed with 'letters' input.`);
 		}
 	}
 	
-	// add request urls from input
+	// add request urls from input - `init_urls`
 	if (input.init_urls){		
 		let init_urls = input.init_urls.split(',');
 		console.log(`Adding requests from input init_urls (${init_urls.length}).`);
