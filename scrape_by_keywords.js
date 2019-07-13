@@ -61,7 +61,7 @@ function randomInteger(min, max) {
   }
 
 Apify.main(async () => {  
-	var base_name = 'AT-CH-500-1K';
+	var base_name = 'AT-CH-200-500';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
@@ -136,23 +136,25 @@ Apify.main(async () => {
 		if (input.zero_pages_search_file){	
 			//console.log(`Reading file with zero pages` );	
 			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
-			let urls = contents.split('\n');
-			console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
-			let i,counter=0;
-			for (i = 0; i < urls.length; i++) { 
-				if (urls[i]){
-					requestQueue.addRequest({ url: urls[i].trim() });
-					counter+=0;
-				}
-			} 
-			console.log(`${counter} url(s) been added from the zero pages file.`);
+			if (contents!='') {
+				let urls = contents.split('\n');
+				console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
+				let i,counter=0;
+				for (i = 0; i < urls.length; i++) { 
+					if (urls[i]){
+						requestQueue.addRequest({ url: urls[i].trim() });
+						counter+=0;
+					}
+				} 
+				console.log(`${counter} url(s) been added from the zero pages file.`);
+			}
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 
 	if (input.crawl.landern){		
 		let landern = input.crawl.landern.split(',');
 		console.log(`\nAdding requests from input Deutsch landern (${landern.length}).`);
-		console.log('landern indexes:', landern); 
+		console.log('Landern indexes:', landern); 
 		let i;		
 		for (i = 0; i < landern.length  ; i++) {  	
 			let url = base_req_land + "&filter.location[]=" + landern[i].trim(); 
@@ -160,34 +162,35 @@ Apify.main(async () => {
 		} 
 		console.log(`${i} url(s) been added from 'landern' input.`);
 	}
-	// add request urls from input based on letters
-	if (input.letters){		
-		let letters = input.letters.split(',');
-		console.log(`\nAdding requests from input letters (${letters.length}).`);
-		//console.log('letters:', letters); 
-		let i;
-		for (i = 0; i < letters.length  ; i++) {  	
-			let url = base_req + "&keywords=" + letters[i].trim(); 
-			await requestQueue.addRequest({ url: url });
-		} 
-		console.log(`${i} url(s) been added from letters input.`);
+	// add request urls from input based landern composed with letters OR only letters
+	if (input.letters){	
+		let letters = input.letters.split(','); //console.log('letters:', letters); 
 		// landern composed with letters
-		if (input.landern_with_letters) {
+		if (input.crawl.landern_with_letters) {
 			let counter=0;
 			let i,j;
-			let landern_with_letters = input.landern_with_letters.split(',');
-			for (i = 0; i < landern_with_letters.length  ; i++) { 
-				for (j = 0; j < letters.length  ; j++) {  	
+			let landern = input.crawl.landern_with_letters.split(',');
+			for (i = 0; i < landern.length  ; i++) { 
+				for (j = 0; j < letters.length  ; j++) {
+					//console.log('letter:',letters[j] ,'land:', landern[i]);
 					let url = base_req_land + "&filter.location[]=" + landern[i].trim()
 					url += "&keywords=" + letters[j].trim(); 
 					await requestQueue.addRequest({ url: url });
 					counter+=1;
-1				} 	 
+				} 	 
 			}
 			console.log(`\n${counter} url(s) have been added from 'landern_with_letters' input composed with 'letters' input.`);
+		} else { // only letters input (with given countries)			
+			console.log(`\nAdding requests from input letters (${letters.length}).`);			
+			let i;
+			for (i = 0; i < letters.length  ; i++) {  	
+				let url = base_req + "&keywords=" + letters[i].trim(); 
+				await requestQueue.addRequest({ url: url });
+			} 
+			console.log(`${i} url(s) been added from letters input.`);
 		}
 	}
-	
+	//process.exit();
 	// add request urls from input - `init_urls`
 	if (input.init_urls){		
 		let init_urls = input.init_urls.split(',');
