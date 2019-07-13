@@ -235,8 +235,10 @@ Apify.main(async () => {
 					await login_page(page, account.username, account.password);	
 					//console.log('Success to log in!');
 				} catch(e){ console.log('Error setting cookies:', e); }
-			} 	
-			//await page.goto(request.url, { timeout: 80000 });
+			}
+			// Utility function which strips the variable
+			// from window.navigator object
+			await Apify.utils.puppeteer.hideWebDriver(page); // 
 			const response = page.goto(request.url, { timeout: 70000 }).catch(() => null);
 			if (!response) {
 				//await puppeteerPool.retire(page.browser());				
@@ -251,14 +253,20 @@ Apify.main(async () => {
 				console.log('\n --- Failed page url:\n ', page.url().split('?')[1]);
 				console.log('Trying to relogin...');
 				//trying to relogin
+				await page.click('input[name="username"]', {clickCount: 3});
 				await page.type('input[name="username"]', account.username);
 				await page.type('input[name="password"]', account.password);
+				let user,user_name;
 				await Promise.all([
-					page.evaluate(() => {
+					/*page.evaluate(() => {
 						document.getElementsByTagName('button')[1].click();
-					}),		
-					page.waitForNavigation({ waitUntil: 'networkidle0' }),
-					console.log('Success to re-login!!!')
+					}),*/		
+					await page.click('button'),
+					page.waitForNavigation({ waitUntil: 'networkidle0' }), 
+					//let user = await page.$eval('p[class^="Me-Me"]', el => el.innerText),
+					user = await page.$('p[class^="Me-Me"]'),
+					user_name = await (await user.getProperty('textContent')).jsonValue(),						
+					console.log(`Success to re-login into "${user_name}" (${account_index})`),
 				]).catch(e => console.log('Re-login error:', e));
 				//login_flag = false;
                 //throw new Error(`\n --- We have to login again for ${request.url}`);
