@@ -60,21 +60,26 @@ function randomInteger(min, max) {
     return Math.floor(rand);
   }
 
+function get_account_index(exceptions=[3,5,7,9]){
+	let account_index;
+	do {
+		account_index =	randomInteger(0,9)
+	} 
+	while (exceptions.includes(account_index));
+	return account_index
+}
+
 Apify.main(async () => {  
-	var base_name = 'AT-CH-200-500';
+	var base_name = 'DE-200-500';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
 	//console.log('input:', input);
 	
 	var concurrency =  parseInt(input.concurrency);
-	var account_index ='';
+	var account_index;
 	if (!input.account_index) {
-		let exceptions=[3,5,9];
-		do {
-			account_index =	randomInteger(0,9)
-		} 
-		while (exceptions.includes(account_index))
+		account_index = get_account_index();
 	} else {
 		account_index = input.account_index;
 	}	
@@ -204,7 +209,7 @@ Apify.main(async () => {
 	}
 	 
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
-	console.log(`Request Queue "${name}" before the crawl start:` );
+	console.log(`\nRequest Queue "${name}" before the crawl start:` );
 	console.log(' handledRequestCount:', handledRequestCount);
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);
@@ -234,7 +239,8 @@ Apify.main(async () => {
 					// console.log('Cookie is set for log-in!');
 					await login_page(page, account.username, account.password);	
 					//console.log('Success to log in!');
-				} catch(e){ console.log('Error setting cookies:', e); }
+					login_flag = true;
+				} catch(e){ console.log('Error login page:', e); }
 			}
 			// Utility function which strips the variable
 			// from window.navigator object
@@ -246,33 +252,42 @@ Apify.main(async () => {
 			}
 			return response;			 
 		},
-        handlePageFunction: async ({ request, page, puppeteerPool }) => {
-			if (!login_flag) { login_flag = true; }
-			if (page.url().includes('login.')) {
+        handlePageFunction: async ({ request, page, puppeteerPool }) => {			
+			if (page.url().includes('login.') && !login_flag) {
                 //await puppeteerPool.retire(page.browser());
 				console.log('\n --- Failed page url:\n ', page.url().split('?')[1]);
 				console.log('Trying to relogin...');
+				account_index = get_account_index();
+				console.log('New account index:', account_index);
+				account = input.account[account_index];
 				//trying to relogin
 				await page.click('input[name="username"]', {clickCount: 3});
 				await page.type('input[name="username"]', account.username);
 				await page.type('input[name="password"]', account.password);
-				let user,user_name;
-				await Promise.all([
-					/*page.evaluate(() => {
-						document.getElementsByTagName('button')[1].click();
-					}),*/		
-					await page.click('button'),
-					page.waitForNavigation({ waitUntil: 'networkidle0' }), 
-					//let user = await page.$eval('p[class^="Me-Me"]', el => el.innerText),
-					user = await page.$('p[class^="Me-Me"]'),
-					user_name = await (await user.getProperty('textContent')).jsonValue(),						
-					console.log(`Success to re-login into "${user_name}" (${account_index})`),
-				]).catch(e => console.log('Re-login error:', e));
+				await page.click('button[type="submit"]');
+				await page.waitForNavigation({ waitUntil: 'networkidle0' });
+				//let user = await page.$eval('p[class^="Me-Me"]', el => el.innerText),
+				let temp_user = await page.$('p[class^="Me-Me"]');
+				let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
+				if (temp_user_name) {
+					console.log(`Success to re-login into "${temp_user_name}"; account_index: ${account_index}`);
+					login_flag = true;
+				} else {
+					console.log(`Seems failure to re-login into account_index: ${account_index}`);
+				}  
+				/*await Promise.all([	
+					//user = await page.$('p[class^="Me-Me"]'),
+					//user_name = await (await user.getProperty('textContent')).jsonValue(),						
+					//console.log(`Success to re-login into "${user_name}" (${account_index})`),
+				]).catch(e => function(){ console.log('Re-login error:', e); 
+										  login_flag = false; 
+										});*/
 				//login_flag = false;
                 //throw new Error(`\n --- We have to login again for ${request.url}`);
 				 
 				//await login_page(page, account.username, account.password);	
             }
+			if (login_flag == false) {login_flag = true;}
 			counter+=1
 			console.log(`***********************\n ${counter}. Page:`, request.url.split('/companies')[1]);
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
@@ -294,18 +309,18 @@ Apify.main(async () => {
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 						let companies_num = await (await result.getProperty('textContent')).jsonValue();
-						console.log('\n comp number:', companies_num);
+						//console.log('\n comp number:', companies_num);
 						let amount = parseInt(companies_num.replace(',', '').replace('.', ''));				
 						if (!amount && (companies_num.includes('One company') || companies_num.includes('Ein Unternehmen')) ) { 
 							amount=1; 
 						}
 						if (amount){
-							console.log('\nFound amount:', amount);
+							//console.log('\nFound amount:', amount);
 							companies_for_base_search_page = amount;
 							total_companies += amount;				
-						} else {
+						} /*else {
 							console.log('Companies amount is empty.'); 
-						}
+						}*/
 					} catch(error){
 						console.log(`\nNo companies number found for ${request.url}:\n` , error);
 					} 
@@ -346,14 +361,14 @@ Apify.main(async () => {
 						let new_elem = 'https://www.xing.com'+elem;
 						links_found.delete(elem);
 						links_found.add(new_elem);
-						total_page_links.add(new_elem);
-					} else {
+						//total_page_links.add(new_elem);
+					} /*else {
 						total_page_links.add(elem);
-					}								
+					}	*/							
 				}
 				//await links_store.setValue('scraped_urls', links_found );
-				console.log('FOUND LINKS at "'+ request.url.split('?')[1] +'": (', links_found.size, ')\n', links_found );		
-				console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );	
+				console.log('FOUND LINKS at "'+ request.url.split('companies_search_button&')[1] +'": (', links_found.size, ')'); //\n', links_found );		
+				// console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );	
 				// process  pages with 0 links found
 				if (links_found.size==0){
 					empty_req[counter] = request.url;
@@ -533,7 +548,7 @@ Apify.main(async () => {
 					}
 				} catch (e) { console.log(e); }				
 			}  			
-			
+			console.log('Total companies found: ', total_companies, '\n ******************');
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
 			console.log(' pending:', pendingRequestCount);

@@ -31,8 +31,20 @@ async function login_page(page, username="", password="", cookieFile="") {
 			document.getElementsByTagName('button')[1].click();
 		}),		
 		page.waitForNavigation({ waitUntil: 'networkidle0' }),
-		console.log('Success to log in!')
+		async function(){
+			//var temp_user = await page.$('p[class^="Me-Me"]'),
+			let temp_user = await page.$('p[class^="Me-Me"]')
+			//await (await result.getProperty('textContent')).jsonValue()
+			let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
+			if (temp_user_name) { 
+				console.log(`Success to login into "${temp_user_name}"; account_index: ${account_index}`);
+			} else {
+				console.log(`Seems failure to login into account_index: ${account_index}`);
+			}
+		},		
 	]).catch(e => console.log('Click error:', e));
+	let temp_user_name2 =  await (await page.$('p[class^="Me-Me"]').getProperty('textContent')).jsonValue();
+	console.log(`22 Success to login into "${temp_user_name}"; account_index: ${account_index}.`);
 	if (cookieFile){
 		// Save Session Cookies
 		const cookiesObject = await page.cookies();
