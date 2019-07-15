@@ -195,6 +195,16 @@ Apify.main(async () => {
 			console.log(`${i} url(s) been added from letters input.`);
 		}
 	}
+	if (input.crawl.landern_only){
+		let landern = input.crawl.landern_only.split(',');
+		let counter=0;
+		for (let i = 0; i < landern.length  ; i++) {
+			let url = base_req_land + "&filter.location[]=" + landern[i].trim() 
+			await requestQueue.addRequest({ url: url });
+			counter+=1;
+		}
+		console.log(`\n${counter} url(s) have been added from 'landern_only' input`); 
+	}	
 	//process.exit();
 	// add request urls from input - `init_urls`
 	if (input.init_urls){		
