@@ -70,7 +70,7 @@ function get_account_index(exceptions=[3,5,7,9]){
 }
 
 Apify.main(async () => {  
-	var base_name = 'DE-200-500';
+	var base_name = 'AT-CH-50-200';
 	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT-'+base_name);
@@ -144,11 +144,11 @@ Apify.main(async () => {
 			if (contents!='') {
 				let urls = contents.split('\n');
 				console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
-				let i,counter=0;
+				let i, counter=0;
 				for (i = 0; i < urls.length; i++) { 
 					if (urls[i]){
 						requestQueue.addRequest({ url: urls[i].trim() });
-						counter+=0;
+						counter+=1;
 					}
 				} 
 				console.log(`${counter} url(s) been added from the zero pages file.`);
@@ -244,10 +244,23 @@ Apify.main(async () => {
 		launchPuppeteerOptions: { slowMo: 50 } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
 			if (!login_flag) { // we login until the `login_flag` is off/false 			
-				try{	 
+				try{	
+					let temp_user = await page.$('p[class^="Me-Me"]');					
+					if (temp_user ){
+						console.log('\ntemp_user:', temp_user);
+						let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
+						if ( temp_user_name) {
+							console.log('\ntemp_user_name:', temp_user_name);	
+							console.log(`Success to re-login into "${temp_user_name}"; account_index: ${account_index}`);
+							//login_flag = true;
+						}
+					} else {
+						console.log(`It seems to not logged-in and it requires to log in.`);
+						await login_page(page, account.username, account.password);	
+					}  
 					//await set_cookie(page);
 					// console.log('Cookie is set for log-in!');
-					await login_page(page, account.username, account.password);	
+					
 					//console.log('Success to log in!');
 					login_flag = true;
 				} catch(e){ console.log('Error login page:', e); }
