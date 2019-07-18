@@ -13,7 +13,25 @@ function login_by_cookie_sync(browser, close=0, url='https://www.xing.com'){
 		.then( () => { if (close) { browser.close(); } });
     });	
 }
+function print_cookie(cookies, amount_only=false){	
+	if (!amount_only){
+		for (let i=0; i < cookies.length; i++){
+			console.log(i+1, cookies[i].name, cookies[i].value);
+		}
+	}
+	console.log('  Cookie items:',cookies.length);
+}
 
+async function check_if_logged_in(page){
+	let user = await page.$('span.myxing-profile-name'); 
+	let user_name = false;
+	if (user){
+		user_name = await (await user.getProperty('textContent')).jsonValue();
+		//console.log('Logged in user:', user_name);
+		//return true;
+	}
+	return user_name;
+}
 async function login_page(page, username="", password="", cookieFile="") {
 	if (!username) {
 		const config = require('./config.js');
@@ -25,26 +43,24 @@ async function login_page(page, username="", password="", cookieFile="") {
 	await page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
 	await page.type('input[name="login_form[username]"]', username);
 	await page.type('input[name="login_form[password]"]', password);
-	// click and wait for navigation
-	await Promise.all([
-		page.evaluate(() => {
+	await page.evaluate(() => {
 			document.getElementsByTagName('button')[1].click();
-		}),		
-		page.waitForNavigation({ waitUntil: 'networkidle0' }),
-		async function(){
-			//var temp_user = await page.$('p[class^="Me-Me"]'),
-			let temp_user = await page.$('p[class^="Me-Me"]')
-			//await (await result.getProperty('textContent')).jsonValue()
-			let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
-			if (temp_user_name) { 
-				console.log(`Success to login into "${temp_user_name}"; account_index: ${account_index}`);
-			} else {
-				console.log(`Seems failure to login into account_index: ${account_index}`);
-			}
-		},		
-	]).catch(e => console.log('Click error:', e));
-	let temp_user_name2 =  await (await page.$('p[class^="Me-Me"]').getProperty('textContent')).jsonValue();
-	console.log(`22 Success to login into "${temp_user_name}"; account_index: ${account_index}.`);
+		});
+	await page.waitForNavigation({ waitUntil: 'networkidle0' });	 
+	console.log('\nAfter login_page():');
+	let page_url = await page.url();
+	console.log('  Page url :', page_url);
+	let page_content = await page.content();
+	console.log('  Page content size :', page_content.length );
+	var login_check = await check_if_logged_in(page);
+	console.log('  Login result :', login_check );
+	let cookies= await page.cookies();
+	if (cookies){
+		print_cookie(cookies,1)
+	}
+	else {
+		console.log('Seems not logged in...\ncookies:', cookies);
+	}
 	if (cookieFile){
 		// Save Session Cookies
 		const cookiesObject = await page.cookies();
@@ -65,6 +81,7 @@ async function login_page(page, username="", password="", cookieFile="") {
 				}
 			});
 	}
+	return login_check;
 }
 
 async function login(username="", password="", cookieFile="cookies.json", close_browser=1, slow_down_ms=50) {
@@ -152,3 +169,5 @@ global.set_cookie = set_cookie;
 global.login = login;
 global.login_page = login_page;
 global.login_by_cookie_sync = login_by_cookie_sync;
+global.check_if_logged_in = check_if_logged_in;
+global.print_cookie=print_cookie;
