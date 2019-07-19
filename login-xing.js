@@ -39,28 +39,35 @@ async function login_page(page, username="", password="", cookieFile="") {
 		if (!password) { 
 			password = config.CREDS.password;
 		} 
-	}
-	await page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
-	await page.type('input[name="login_form[username]"]', username);
-	await page.type('input[name="login_form[password]"]', password);
-	await page.evaluate(() => {
-			document.getElementsByTagName('button')[1].click();
-		});
+	}   
+	try {      // regular login
+		await page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
+		await page.type('input[name="login_form[username]"]', username);
+		await page.type('input[name="login_form[password]"]', password);
+		await page.evaluate(() => {
+				document.getElementsByTagName('button')[1].click();
+			});
+	} catch(e){ //trying to relogin		
+		await page.click('input[name="username"]', {clickCount: 3});
+		await page.type('input[name="username"]',  username);
+		await page.type('input[name="password"]',  password);
+		await page.click('button[type="submit"]'); 
+	} 
 	await page.waitForNavigation({ waitUntil: 'networkidle0' });	 
-	console.log('\nAfter login_page():');
+	console.log('\nAfter (re)login_page():');
 	let page_url = await page.url();
 	console.log('  Page url :', page_url);
 	let page_content = await page.content();
 	console.log('  Page content size :', page_content.length );
 	var login_check = await check_if_logged_in(page);
 	console.log('  Login result :', login_check );
-	let cookies= await page.cookies();
+	/*let cookies= await page.cookies();
 	if (cookies){
 		print_cookie(cookies,1)
 	}
 	else {
 		console.log('Seems not logged in...\ncookies:', cookies);
-	}
+	}*/
 	if (cookieFile){
 		// Save Session Cookies
 		const cookiesObject = await page.cookies();
