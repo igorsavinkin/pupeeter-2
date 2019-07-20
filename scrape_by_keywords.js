@@ -156,9 +156,9 @@ Apify.main(async () => {
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 
-	if (input.crawl.landern){		
+	/*if (input.crawl.landern){		
 		let landern = input.crawl.landern.split(',');
-		console.log(`\nAdding requests from input Deutsch landern (${landern.length}).`);
+		console.log(`\nAdding requests from input [Deutschen] landern (${landern.length}).`);
 		console.log('Landern indexes:', landern); 
 		let i;		
 		for (i = 0; i < landern.length  ; i++) {  	
@@ -166,7 +166,7 @@ Apify.main(async () => {
 			await requestQueue.addRequest({ url: url });
 		} 
 		console.log(`${i} url(s) been added from 'landern' input.`);
-	}
+	}*/
 	// add request urls from input based landern composed with letters OR only letters
 	if (input.letters){	
 		let letters = input.letters.split(','); //console.log('letters:', letters); 
@@ -243,27 +243,19 @@ Apify.main(async () => {
         maxConcurrency: concurrency,
 		launchPuppeteerOptions: { slowMo: 50 } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
-			if (!login_flag) { // we login until the `login_flag` is off/false 			
-				try{	
-					let temp_user = await page.$('p[class^="Me-Me"]');					
-					if (temp_user ){
-						console.log('\ntemp_user:', temp_user);
-						let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
-						if ( temp_user_name) {
-							console.log('\ntemp_user_name:', temp_user_name);	
-							console.log(`Success to re-login into "${temp_user_name}"; account_index: ${account_index}`);
-							//login_flag = true;
-						}
+			if (!login_flag){
+				try{
+					console.log('Start logging in...');	
+					console.log('  page.url():', page.url());					
+					login_res = await login_page(page, account.username, account.password);	
+					if (login_res){ 
+						console.log(`Success to log in with "${login_res}"\n`);			
+						login_flag = true;
 					} else {
-						console.log(`It seems to not logged-in and it requires to log in.`);
-						await login_page(page, account.username, account.password);	
+						console.log(`Failure to log in... with account ${account.username}.\n` );  
 					}  
-					//await set_cookie(page);
-					// console.log('Cookie is set for log-in!');
 					
-					//console.log('Success to log in!');
-					login_flag = true;
-				} catch(e){ console.log('Error login page:', e); }
+				} catch(e){ console.log('Error login_page():', e); }
 			}
 			// Utility function which strips the variable
 			// from window.navigator object
@@ -276,41 +268,6 @@ Apify.main(async () => {
 			return response;			 
 		},
         handlePageFunction: async ({ request, page, puppeteerPool }) => {			
-			if (page.url().includes('login.') && !login_flag) {
-                //await puppeteerPool.retire(page.browser());
-				console.log('\n --- Failed page url:\n ', page.url().split('?')[1]);
-				console.log('Trying to relogin...');
-				account_index = get_account_index();
-				console.log('New account index:', account_index);
-				account = input.account[account_index];
-				//trying to relogin
-				await page.click('input[name="username"]', {clickCount: 3});
-				await page.type('input[name="username"]', account.username);
-				await page.type('input[name="password"]', account.password);
-				await page.click('button[type="submit"]');
-				await page.waitForNavigation({ waitUntil: 'networkidle0' });
-				//let user = await page.$eval('p[class^="Me-Me"]', el => el.innerText),
-				let temp_user = await page.$('p[class^="Me-Me"]');
-				let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
-				if (temp_user_name) {
-					console.log(`Success to re-login into "${temp_user_name}"; account_index: ${account_index}`);
-					login_flag = true;
-				} else {
-					console.log(`Seems failure to re-login into account_index: ${account_index}`);
-				}  
-				/*await Promise.all([	
-					//user = await page.$('p[class^="Me-Me"]'),
-					//user_name = await (await user.getProperty('textContent')).jsonValue(),						
-					//console.log(`Success to re-login into "${user_name}" (${account_index})`),
-				]).catch(e => function(){ console.log('Re-login error:', e); 
-										  login_flag = false; 
-										});*/
-				//login_flag = false;
-                //throw new Error(`\n --- We have to login again for ${request.url}`);
-				 
-				//await login_page(page, account.username, account.password);	
-            }
-			if (login_flag == false) {login_flag = true;}
 			counter+=1
 			console.log(`***********************\n ${counter}. Page:`, request.url.split('/companies')[1]);
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
@@ -571,7 +528,16 @@ Apify.main(async () => {
 					}
 				} catch (e) { console.log(e); }				
 			}  			
-			//console.log('Total companies found: ', total_companies, '\n ******************');
+			// let's check login 
+			console.log('We check before leaving the page...');
+			login_check = await check_if_logged_in(page);			
+			if (login_check){
+				console.log(`Logged "${login_check}", account: ${account_index}.`);			
+				login_flag = true;
+			} else {
+				console.log('Warning! Not logged-in for the page!');
+				login_flag = false; 
+			}	
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
 			console.log(' pending:', pendingRequestCount);

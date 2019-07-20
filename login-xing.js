@@ -54,22 +54,14 @@ async function login_page(page, username="", password="", cookieFile="") {
 		await page.click('button[type="submit"]'); 
 	} 
 	await page.waitForNavigation({ waitUntil: 'networkidle0' });	 
-	console.log('\nAfter (re)login_page():');
-	let page_url = await page.url();
-	console.log('  Page url :', page_url);
-	let page_content = await page.content();
-	console.log('  Page content size :', page_content.length );
+	console.log('After (re)login_page():');
+	//let page_url = ;
+	console.log('  Page url :', await page.url());
+	//let page_content = await page.content();
+	//console.log('  Page content size :', page_content.length );
 	var login_check = await check_if_logged_in(page);
-	console.log('  Login result :', login_check );
-	/*let cookies= await page.cookies();
-	if (cookies){
-		print_cookie(cookies,1)
-	}
-	else {
-		console.log('Seems not logged in...\ncookies:', cookies);
-	}*/
-	if (cookieFile){
-		// Save Session Cookies
+	console.log('  Login result:', login_check );
+	if (login_check && cookieFile){ // save session cookies		
 		const cookiesObject = await page.cookies();
 		const jsonfile = require('jsonfile');
 		/*if (!cookieFile){
