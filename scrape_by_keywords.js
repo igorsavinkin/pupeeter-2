@@ -124,6 +124,7 @@ Apify.main(async () => {
 	var total_companies = 0;
 	var counter = 0;	
 	var push_data = true;
+	var login_failure_counter = 0;
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
 	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
@@ -243,6 +244,19 @@ Apify.main(async () => {
         maxConcurrency: concurrency,
 		launchPuppeteerOptions: { slowMo: 50 } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
+			// check login_failure_counter
+			if ( login_failure_counter >= concurrency*2 - 1 ) {
+				login_failure_counter = 0; // we reset login_failure_counter
+				// changing account 				
+				let new_account_index = get_account_index();
+				do {
+					new_account_index = get_account_index();
+				} 
+				while (new_account_index == account_index);
+				account_index = new_account_index;
+				account = input.account[account_index];
+				console.log(`We have changed account to "${account.username}", account number ${account_index}.`)
+			}
 			if (!login_flag){
 				try{
 					console.log('Start logging in...');	
@@ -554,9 +568,11 @@ Apify.main(async () => {
 			if (login_check){
 				console.log(`Logged "${login_check}", account: ${account_index}.`);			
 				login_flag = true;
+				 
 			} else {
 				console.log('Warning! Not logged-in for the page!');
 				login_flag = false; 
+				login_failure_counter += 1;
 			}	
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
