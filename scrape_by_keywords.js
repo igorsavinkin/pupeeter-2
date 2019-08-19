@@ -329,7 +329,7 @@ Apify.main(async () => {
 				}
 				// gather company links
 				//await page.reload();
-				var page_content = await page.content();
+				page_content = await page.content();
 				/*fs.writeFile("temp_page_content.html", page_content, (err) => {
 				    if (err) console.log(err);
 				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
@@ -368,10 +368,11 @@ Apify.main(async () => {
 			
 			} else { // processing company page 
 				console.log(' --- processing a company page:', request.url.split('/companies')[1]);
+				page_content='';
 				try {
 					//gather_info_into_dataset(page);
 					var company_name='';
-					try{
+					/*try{
 						let login_sign = await page.$('span.myxing-profile-name');
 						if (login_sign){
 							console.log('Found  `span.myxing-profile-name` ...');
@@ -379,7 +380,7 @@ Apify.main(async () => {
 						}
 					} catch(err){
 						console.log('Failure to find `span.myxing-profile-name`');
-					}
+					}*/
 					try { // get name of the company
 						var name_element = await page.$('h1.organization-name');
 						company_name = await (await name_element.getProperty('textContent')).jsonValue();
