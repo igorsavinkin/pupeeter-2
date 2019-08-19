@@ -334,6 +334,12 @@ Apify.main(async () => {
 				    if (err) console.log(err);
 				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
 				});*/  
+				// checking 
+				/*if (page_content.includes('class="Me-Me')){
+					console.log('Found `class="Me-Me`');
+					login_flag=true;
+				}*/
+				
 				links_found = findAll(main_link_regex, page_content);
 				 
 				for (elem of links_found) { 
@@ -365,6 +371,15 @@ Apify.main(async () => {
 				try {
 					//gather_info_into_dataset(page);
 					var company_name='';
+					try{
+						let login_sign = await page.$('span.myxing-profile-name');
+						if (login_sign){
+							console.log('Found  `span.myxing-profile-name` ...');
+							login_flag=true;
+						}
+					} catch(err){
+						console.log('Failure to find `span.myxing-profile-name`');
+					}
 					try { // get name of the company
 						var name_element = await page.$('h1.organization-name');
 						company_name = await (await name_element.getProperty('textContent')).jsonValue();
@@ -530,7 +545,11 @@ Apify.main(async () => {
 			}  			
 			// let's check login 
 			console.log('We check before leaving the page...');
-			login_check = await check_if_logged_in(page);			
+			if (page_content) {
+				login_check = await check_if_logged_in(page, page_content);			
+			} else {
+				login_check = await check_if_logged_in(page);
+			}
 			if (login_check){
 				console.log(`Logged "${login_check}", account: ${account_index}.`);			
 				login_flag = true;

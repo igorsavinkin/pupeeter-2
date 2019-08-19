@@ -22,15 +22,24 @@ function print_cookie(cookies, amount_only=false){
 	console.log('  Cookie items:',cookies.length);
 }
 
-async function check_if_logged_in(page){
+async function check_if_logged_in(page, page_content = false){
+	//console.log('  Checking if logged-in.');
 	let user = await page.$('span.myxing-profile-name'); 
 	let user_name = false;
 	if (user){
 		user_name = await (await user.getProperty('textContent')).jsonValue();
 		//console.log('Logged in user:', user_name);
 		//return true;
+		return user_name;
 	}
-	return user_name;
+	if (!page_content) { 
+		var page_content = await page.content();	 
+	}
+	if (page_content.includes('class="Me-Me')){
+		//console.log('Found `class="Me-Me`');
+		return true; //login_flag=true;
+	} 
+	return false;
 }
 async function login_page(page, username="", password="", cookieFile="") {
 	if (!username) {
