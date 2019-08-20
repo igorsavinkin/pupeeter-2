@@ -71,8 +71,8 @@ function get_account_index(exceptions=[3,5,7,9]){
 
 Apify.main(async () => {   
 	// we get input from 'default' store (init variables from INPUT json file)
-	const store = await Apify.openKeyValueStore('default');	
-	const input = await store.getValue('INPUT');
+	const store = await Apify.openKeyValueStore();	
+	const input = await store.getValue('INPUT'); 
 	console.log('input:', input);
 	
 	var concurrency =  parseInt(input.concurrency);
