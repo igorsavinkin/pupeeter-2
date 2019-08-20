@@ -33,7 +33,8 @@ async function printRequestQueue(RequestQueue){
 function check_link(elem) {
 	let check_flag=true;
 	exclude_links_with.forEach(function(item) { 
-		if (elem.includes(item)){ 
+		if (elem.includes(item)){
+			//console.log(elem ,' includes item of array ', item);
 			check_flag = false; 
 		}
 	});
@@ -42,9 +43,14 @@ function check_link(elem) {
 
 function addLinksToRequestQueue(links, requestQueue){
 	for (elem of links) {
+		//let check_flag = true;
+		//check_flag = check_link(elem); 
 		if (check_link(elem)){
 			requestQueue.addRequest({ url: elem });
-		} 
+			//console.log(' - added:', elem);
+		} else {
+			//console.log(` - Not added: ${elem}`);
+		}
 	}
 	return requestQueue;
 }
@@ -64,6 +70,7 @@ function get_account_index(exceptions=[3,5,7,9]){
 }
 
 Apify.main(async () => {   
+	// we get input from 'default' store (init variables from INPUT json file)
 	const store = await Apify.openKeyValueStore('default');	
 	const input = await store.getValue('INPUT');
 	console.log('input:', input);
@@ -103,7 +110,8 @@ Apify.main(async () => {
 	var base_req_land = init_base_req + empl_cat_parameters;
 	console.log('base_req:', [base_req]);
 	console.log('base_req_land:', [base_req_land]);
-
+	//process.exit();
+	
 	// utility variables
 	var links_found = {};
 	var links_found2 = {};
@@ -115,6 +123,7 @@ Apify.main(async () => {
 	var total_companies = 0;
 	var counter = 0;	
 	var push_data = true;
+	var login_failure_counter = 0;
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
 	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
@@ -135,11 +144,11 @@ Apify.main(async () => {
 			if (contents!='') {
 				let urls = contents.split('\n');
 				console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
-				let i,counter=0;
+				let i, counter=0;
 				for (i = 0; i < urls.length; i++) { 
 					if (urls[i]){
 						requestQueue.addRequest({ url: urls[i].trim() });
-						counter+=0;
+						counter+=1;
 					}
 				} 
 				console.log(`${counter} url(s) been added from the zero pages file.`);
@@ -147,9 +156,9 @@ Apify.main(async () => {
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 
-	if (input.crawl.landern){		
+	/*if (input.crawl.landern){		
 		let landern = input.crawl.landern.split(',');
-		console.log(`\nAdding requests from input Deutsch landern (${landern.length}).`);
+		console.log(`\nAdding requests from input [Deutschen] landern (${landern.length}).`);
 		console.log('Landern indexes:', landern); 
 		let i;		
 		for (i = 0; i < landern.length  ; i++) {  	
@@ -157,7 +166,7 @@ Apify.main(async () => {
 			await requestQueue.addRequest({ url: url });
 		} 
 		console.log(`${i} url(s) been added from 'landern' input.`);
-	}
+	}*/
 	// add request urls from input based landern composed with letters OR only letters
 	if (input.letters){	
 		let letters = input.letters.split(','); //console.log('letters:', letters); 
@@ -185,7 +194,18 @@ Apify.main(async () => {
 			} 
 			console.log(`${i} url(s) been added from letters input.`);
 		}
-	} 
+	}
+	if (input.crawl.landern_only){
+		let landern = input.crawl.landern_only.split(',');
+		let counter=0;
+		for (let i = 0; i < landern.length  ; i++) {
+			let url = base_req_land + "&filter.location[]=" + landern[i].trim() 
+			await requestQueue.addRequest({ url: url });
+			counter+=1;
+		}
+		console.log(`\n${counter} url(s) have been added from 'landern_only' input`); 
+	}	
+	//process.exit();
 	// add request urls from input - `init_urls`
 	if (input.init_urls){		
 		let init_urls = input.init_urls.split(',');
@@ -223,14 +243,32 @@ Apify.main(async () => {
         maxConcurrency: concurrency,
 		launchPuppeteerOptions: { slowMo: 50 } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
-			if (!login_flag) { // we login until the `login_flag` is off/false 			
-				try{	 
-					//await set_cookie(page);
-					// console.log('Cookie is set for log-in!');
-					await login_page(page, account.username, account.password);	
-					//console.log('Success to log in!');
-					login_flag = true;
-				} catch(e){ console.log('Error login page:', e); }
+			// check login_failure_counter
+			if ( login_failure_counter >= concurrency*2 - 1 ) {
+				login_failure_counter = 0; // we reset login_failure_counter
+				// changing account 				
+				let new_account_index = get_account_index();
+				do {
+					new_account_index = get_account_index();
+				} 
+				while (new_account_index == account_index);
+				account_index = new_account_index;
+				account = input.account[account_index];
+				console.log(`We have changed account to "${account.username}", account number ${account_index}.`)
+			}
+			if (!login_flag){
+				try{
+					console.log('Start logging in...');	
+					console.log('  page.url():', page.url());					
+					login_res = await login_page(page, account.username, account.password);	
+					if (login_res){ 
+						console.log(`Success to log in with "${login_res}"\n`);			
+						login_flag = true;
+					} else {
+						console.log(`Failure to log in... with account ${account.username}.\n` );  
+					}  
+					
+				} catch(e){ console.log('Error login_page():', e); }
 			}
 			// Utility function which strips the variable
 			// from window.navigator object
@@ -243,36 +281,23 @@ Apify.main(async () => {
 			return response;			 
 		},
         handlePageFunction: async ({ request, page, puppeteerPool }) => {			
-			if (page.url().includes('login.') && !login_flag) {
-                //await puppeteerPool.retire(page.browser());
-				console.log('\n --- Failed page url:\n ', page.url().split('?')[1]);
-				console.log('Trying to relogin...');
-				account_index = get_account_index();
-				console.log('New account index:', account_index);
-				account = input.account[account_index];
-				//trying to relogin
-				await page.click('input[name="username"]', {clickCount: 3});
-				await page.type('input[name="username"]', account.username);
-				await page.type('input[name="password"]', account.password);
-				await page.click('button[type="submit"]');
-				await page.waitForNavigation({ waitUntil: 'networkidle0' });
-				//let user = await page.$eval('p[class^="Me-Me"]', el => el.innerText),
-				let temp_user = await page.$('p[class^="Me-Me"]');
-				let temp_user_name = await (await temp_user.getProperty('textContent')).jsonValue();
-				if (temp_user_name) {
-					console.log(`Success to re-login into "${temp_user_name}"; account_index: ${account_index}`);
-					login_flag = true;
-				} else {
-					console.log(`Seems failure to re-login into account_index: ${account_index}`);
-				}  	
-            }
-			if (login_flag == false) {login_flag = true;}
 			counter+=1
 			console.log(`***********************\n ${counter}. Page:`, request.url.split('/companies')[1]);
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
-				console.log(' --- processing a search page');					
+				console.log(' --- processing a search page');	
+				// we need to wait till 				
+				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
+				/*do {
+				    var result = await page.$('div.ResultsOverview-style-title-8d816f3f');
+					var companies_num = await (await result.getProperty('textContent')).jsonValue();
+					await page.waitFor( 0.5 );
+					console.log('\nWe wait 0.5 sec. since "Working on it" is present.');
+					console.log('companies_num:', companies_num);
+				} while ( companies_num.includes('Working on it'));
+				console.log('after loop, companies_num:', companies_num);	
+				*/
 				if (!request.url.includes('&page=')){ // if this is an initial request/base search page
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
@@ -316,8 +341,18 @@ Apify.main(async () => {
 					}
 				}
 				// gather company links
-				var page_content = await page.content();
-  
+				//await page.reload();
+				page_content = await page.content();
+				/*fs.writeFile("temp_page_content.html", page_content, (err) => {
+				    if (err) console.log(err);
+				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
+				});*/  
+				// checking 
+				/*if (page_content.includes('class="Me-Me')){
+					console.log('Found `class="Me-Me`');
+					login_flag=true;
+				}*/
+				
 				links_found = findAll(main_link_regex, page_content);
 				 
 				for (elem of links_found) { 
@@ -325,7 +360,10 @@ Apify.main(async () => {
 						let new_elem = 'https://www.xing.com'+elem;
 						links_found.delete(elem);
 						links_found.add(new_elem);
-					}					
+						//total_page_links.add(new_elem);
+					} /*else {
+						total_page_links.add(elem);
+					}	*/							
 				}
 				//await links_store.setValue('scraped_urls', links_found );
 				console.log('FOUND LINKS at "'+ request.url.split('companies_search_button&')[1] +'": (', links_found.size, ')'); //\n', links_found );		
@@ -339,17 +377,30 @@ Apify.main(async () => {
 				}
 				// save company links into requestQueue
 				addLinksToRequestQueue(links_found, requestQueue); // The queue can only contain unique URLs.
+				//addLinksToRequestQueue(links_found2, requestQueue); 
 			
 			} else { // processing company page 
 				console.log(' --- processing a company page:', request.url.split('/companies')[1]);
+				page_content='';
 				try {
 					//gather_info_into_dataset(page);
 					var company_name='';
+					/*try{
+						let login_sign = await page.$('span.myxing-profile-name');
+						if (login_sign){
+							console.log('Found  `span.myxing-profile-name` ...');
+							login_flag=true;
+						}
+					} catch(err){
+						console.log('Failure to find `span.myxing-profile-name`');
+					}*/
 					try { // get name of the company
 						var name_element = await page.$('h1.organization-name');
 						company_name = await (await name_element.getProperty('textContent')).jsonValue();
 						var company_name = company_name.trim();  
-					} catch(error){}
+					} catch(error){
+						//console.log(`\nNo company name in url: ${request.url}:\n`); //, error);
+					}
 					if (company_name) { // get info from page's html and saving into dataset
 						// section
 						push_data = true;
@@ -358,47 +409,65 @@ Apify.main(async () => {
 							var summary_element = await page.$('section.facts'); // section.facts > dl > dd:nth-child(1) 
 							summary_text = await (await summary_element.getProperty('textContent')).jsonValue();
 							//console.log('section.facts: ', summary_text);
-						} catch(error){} 
+						} catch(error){
+							//console.log(`\nFailure to get summary text for url: ${request.url}: `, error);
+						} 
 						var about_us='';
 						try {
 							var about_element = await page.$('div#about-us-content'); 
 							about_us = await (await about_element.getProperty('textContent')).jsonValue();
-						} catch(error){	} 
+						} catch(error){
+							//console.log(`\nFailure to get about section for url: ${request.url}: `, error);
+						} 
 						var employees='';
 						try {
 							var employees_element = await page.$('li#employees-tab > a'); 
 							employees = await (await employees_element.getProperty('textContent')).jsonValue();
-						} catch(error){} 
+						} catch(error){
+							//console.log(`\nFailure to get about section for url: ${request.url}: `, error);
+						} 
 						var street_address='';
 						try {
 							var street_element = await page.$('div[itemprop="streetAddress"]');
 							street_address = await (await street_element.getProperty('textContent')).jsonValue(); //.trim();
-						} catch(error){}
+						} catch(error){
+							//console.log(`\nFailure to get street address for url: ${request.url}: `, error);
+						}
 						var post_index='';
 						try {
 							var index_element = await page.$('*[itemprop="postalCode"]');
 							post_index = await (await index_element.getProperty('textContent')).jsonValue();
-						} catch(error){}
+						} catch(error){
+							//console.log(`\nFailure to get post index for url: ${request.url}: `, error);
+						}
 						var city='';
 						try {
 							var city_element = await page.$('*[itemprop="addressLocality"]');
 							city = await (await city_element.getProperty('textContent')).jsonValue();
-						} catch(error){} 
+						} catch(error){
+							//console.log(`\nFailure to get city for url: ${request.url}: `, error);
+						} 
 						var country='';
 						try {
 							var country_element = await page.$('*[itemprop="addressCountry"]');
 							country = await (await country_element.getProperty('textContent')).jsonValue();
-						} catch(error){}
+						} catch(error){
+							//console.log(`\nFailure to get country for url: ${request.url}: `, error);
+						}
 						var phone='';
 						try {
 							var phone_element = await page.$('*[itemprop="telephone"]');
 							phone = await (await phone_element.getProperty('textContent')).jsonValue();
-						} catch(error){} 
+						} catch(error){
+							//console.log(`\nFailure to get phone number for url: ${request.url}: `, error);
+						} 
 						var email='';
 						try {
 							var email_element = await page.$('a[itemprop="email"]');
 							email = await (await email_element.getProperty('textContent')).jsonValue();
-						} catch(error){} 
+						} catch(error){
+							//console.log(`\nFailure to get email for url: ${request.url}: `, error);
+						} 
 						var website='';
 						try {
 							var website_element = await page.$('a[itemprop="url"]');
@@ -488,7 +557,22 @@ Apify.main(async () => {
 					}
 				} catch (e) { console.log(e); }				
 			}  			
-			//console.log('Total companies found: ', total_companies, '\n ******************');
+			// let's check login 
+			console.log('We check before leaving the page...');
+			if (page_content) {
+				login_check = await check_if_logged_in(page, page_content);			
+			} else {
+				login_check = await check_if_logged_in(page);
+			}
+			if (login_check){
+				console.log(`Logged "${login_check}", account: ${account_index}.`);			
+				login_flag = true;
+				 
+			} else {
+				console.log('Warning! Not logged-in for the page!');
+				login_flag = false; 
+				login_failure_counter += 1;
+			}	
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 			console.log('RequestQueue\n handled:', handledRequestCount);
 			console.log(' pending:', pendingRequestCount);
@@ -507,7 +591,16 @@ Apify.main(async () => {
 	if (input.deleteQueue) {
 		console.log('\nDeleting requestQueue');
 		await requestQueue.delete();
-	}	 
+	}
+	/*
+	// write total_page_links into file 
+	var json = JSON.stringify(total_page_links);
+	//fs.writeFile('total_page_links.json', json, 'utf8');
+	fs.writeFile("total_page_links.json", JSON.stringify(total_page_links, null, 4), (err) => {
+		if (err) {  console.error(err);  return; };
+		console.log("File 'total_page_links.json' has been created");
+	});*/
+	
 	// print final queue
 	var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
 	console.log('Final RequestQueue\n handled:', handledRequestCount);
