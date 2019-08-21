@@ -128,8 +128,8 @@ Apify.main(async () => {
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
 	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
-	const no_links_search_url_dataset = await Apify.openDataset('no_links_searches-'+base_name);
-	const oversized_search_dataset = await Apify.openDataset('no_links_searches-'+base_name);
+	const no_links_search_url_dataset = await Apify.openDataset('no-links-searches-'+base_name);
+	const oversized_search_dataset = await Apify.openDataset('no-links-searches-'+base_name);
 	// Open existing queue
 	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
