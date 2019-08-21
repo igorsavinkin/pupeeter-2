@@ -128,6 +128,8 @@ Apify.main(async () => {
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
 	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
+	const no_links_search_url_dataset = await Apify.openDataset('no_links_searches-'+base_name);
+	const oversized_search_dataset = await Apify.openDataset('no_links_searches-'+base_name);
 	// Open existing queue
 	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
@@ -139,21 +141,14 @@ Apify.main(async () => {
 	console.log(' totalRequestCount:'  , totalRequestCount);		
 	
 	try{ // add request urls from input.zero_pages_search_file 
-		if (input.zero_pages_search_file){	
-			//console.log(`Reading file with zero pages` );	
-			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
-			if (contents!='') {
-				let urls = contents.split('\n');
-				console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
-				let i, counter=0;
-				for (i = 0; i < urls.length; i++) { 
-					if (urls[i]){
-						requestQueue.addRequest({ url: urls[i].trim() });
-						counter+=1;
-					}
-				} 
-				console.log(`${counter} url(s) been added from the zero pages file.`);
-			}
+		if (no_links_search_url_dataset){	
+			console.log(`Reading dataset with zero pages` );
+			await no_links_search_url_dataset.forEach(async (item, index) => {
+				console.log(`Added in queue item at ${index}: ${JSON.stringify(item)}`);
+				requestQueue.addRequest({ url: item['url'].trim() });
+				counter+=1;				
+			});	
+			console.log(`${counter} url(s) been added from the zero pages dataset.`);			 
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
 
@@ -326,9 +321,10 @@ Apify.main(async () => {
 							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
 							oversise_req[request.url.split('?')[1]]=total_companies;
 							try{ 
-								fs.appendFile(input.oversized_search_file, '\n'+request.url , function (err) {
-									if (err) {console.log(`Failure to save ${request.url} into ${input.oversized_search_file}`)}; 
-								});	
+								await oversized_search_dataset.pushData({
+									url: request.url
+								});
+								
 							} catch (e) {console.log(`Failure to write to "${input.oversized_search_file}"...\nPlease check if file exists.`);}	
 							
 							//total_companies += amount
@@ -344,10 +340,6 @@ Apify.main(async () => {
 				// gather company links
 				//await page.reload();
 				page_content = await page.content();
-				/*fs.writeFile("temp_page_content.html", page_content, (err) => {
-				    if (err) console.log(err);
-				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
-				});*/  
 				// checking 
 				/*if (page_content.includes('class="Me-Me')){
 					console.log('Found `class="Me-Me`');
@@ -372,9 +364,9 @@ Apify.main(async () => {
 				// process  pages with 0 links found
 				if (links_found.size==0){
 					empty_req[counter] = request.url;
-					fs.appendFile(input.zero_pages_search_file, "\n"+request.url , function (err) {
-					    if (err) {console.log(`Failure to save ${request.url} into ${input.zero_pages_search_file}`)}; 
-					});	
+					await no_links_search_url_dataset.pushData({ 
+						url: request.url 
+					});
 				}
 				// save company links into requestQueue
 				addLinksToRequestQueue(links_found, requestQueue); // The queue can only contain unique URLs.
@@ -592,15 +584,7 @@ Apify.main(async () => {
 	if (input.deleteQueue) {
 		console.log('\nDeleting requestQueue');
 		await requestQueue.delete();
-	}
-	/*
-	// write total_page_links into file 
-	var json = JSON.stringify(total_page_links);
-	//fs.writeFile('total_page_links.json', json, 'utf8');
-	fs.writeFile("total_page_links.json", JSON.stringify(total_page_links, null, 4), (err) => {
-		if (err) {  console.error(err);  return; };
-		console.log("File 'total_page_links.json' has been created");
-	});*/
+	}	
 	
 	// print final queue
 	var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();

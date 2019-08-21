@@ -72,7 +72,7 @@ function get_account_index(exceptions=[3,5,7,9]){
 Apify.main(async () => {  
 	var base_name = 'AT-CH-50-200';
 	// we get input from 'default' store (init variables from INPUT json file)
-	const store = await Apify.openKeyValueStore('default');	
+	const store = await Apify.openKeyValueStore();	
 	const input = await store.getValue('INPUT-'+base_name);
 	//console.log('input:', input);
 	
