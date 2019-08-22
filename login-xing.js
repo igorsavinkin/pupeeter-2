@@ -35,9 +35,8 @@ async function check_if_logged_in(page, page_content = false){
 	if (!page_content) { 
 		var page_content = await page.content();	 
 	}
-	if (page_content.includes('class="Me-Me')){
-		//console.log('Found `class="Me-Me`');
-		return true; //login_flag=true;
+	if (page_content.includes('class="Me-Me')){ 
+		return true;  
 	} 
 	return false;
 }
@@ -63,9 +62,8 @@ async function login_page(page, username="", password="", cookieFile="") {
 		await page.click('button[type="submit"]'); 
 	} 
 	await page.waitForNavigation({ waitUntil: 'networkidle0' });	 
-	console.log('After (re)login_page():');
-	//let page_url = ;
-	console.log('  Page url :', await page.url());
+	console.log('After (re)login_page():\n Page url :', await page.url())
+	//let page_url = ; 
 	//let page_content = await page.content();
 	//console.log('  Page content size :', page_content.length );
 	var login_check = await check_if_logged_in(page);

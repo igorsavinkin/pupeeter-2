@@ -552,24 +552,26 @@ Apify.main(async () => {
 					}
 				} catch (e) { console.log(e); }				
 			}  			
-			// let's check login 
+			// let's check login and get statistics every 5th time
 			//console.log('We check before leaving the page...');
-			if (page_content) {
-				login_check = await check_if_logged_in(page, page_content);			
-			} else {
-				login_check = await check_if_logged_in(page);
+			if (!(counter % 5)) {
+				if (page_content) {
+					login_check = await check_if_logged_in(page, page_content);			
+				} else {
+					login_check = await check_if_logged_in(page);
+				}
+				if (login_check){
+					console.log(`Logged "${login_check}", account: ${account_index}.`);			
+					login_flag = true;
+					 
+				} else {
+					console.log('Warning! Not logged-in for the page!');
+					login_flag = false; 
+					login_failure_counter += 1;
+				}	
+				var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
+				console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
 			}
-			if (login_check){
-				console.log(`Logged "${login_check}", account: ${account_index}.`);			
-				login_flag = true;
-				 
-			} else {
-				console.log('Warning! Not logged-in for the page!');
-				login_flag = false; 
-				login_failure_counter += 1;
-			}	
-			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
-			console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
 			//console.log();
 			//console.log();		
         },
