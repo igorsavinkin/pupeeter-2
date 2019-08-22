@@ -46,7 +46,7 @@ function addLinksToRequestQueue(links, requestQueue){
 		//let check_flag = true;
 		//check_flag = check_link(elem); 
 		if (check_link(elem)){
-			requestQueue.addRequest({ url: elem });
+			requestQueue.addRequest({ url: elem }, {forefront : true});
 			//console.log(' - added:', elem);
 		} else {
 			//console.log(` - Not added: ${elem}`);
@@ -71,10 +71,15 @@ function get_account_index(exceptions=[3,5,7,9]){
 
 Apify.main(async () => {   
 	// we get input from 'default' store (init variables from INPUT json file)
-	var base_name='AT-CH-50-200';
+	
 	//const store = await Apify.openKeyValueStore();	
 	const input = await Apify.getValue('INPUT'); 
 	console.log('input:', input);
+	
+	var base_name = input.dataset_name;
+	console.log('base_name:', base_name);
+	
+	//process.exit();
 	
 	var concurrency =  parseInt(input.concurrency);
 	var account_index;
@@ -85,7 +90,7 @@ Apify.main(async () => {
 	}	
 	var account = input.account[account_index]; // input.account_index];
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
-	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
+	var max_requests_per_crawl = parseInt( input.max_requests_per_crawl); 
 	var dataset_name  =  input.dataset_name;
 	var queue_name  =  input.queue_name;
 	var country_parameters='';
