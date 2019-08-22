@@ -242,7 +242,7 @@ Apify.main(async () => {
 		retireInstanceAfterRequestCount: input.retireInstanceAfterRequestCount,
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 50 } , 
+		launchPuppeteerOptions: { slowMo: 50 , stealth: true } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
 			// check login_failure_counter
 			if ( login_failure_counter >= concurrency*2 - 1 ) {
@@ -270,10 +270,7 @@ Apify.main(async () => {
 					}  
 					
 				} catch(e){ console.log('Error login_page():', e); }
-			}
-			// Utility function which strips the variable
-			// from window.navigator object
-			await Apify.utils.puppeteer.hideWebDriver(page); // 
+			} 			
 			const response = page.goto(request.url, { timeout: 70000 }).catch(() => null);
 			if (!response) {
 				//await puppeteerPool.retire(page.browser());				
