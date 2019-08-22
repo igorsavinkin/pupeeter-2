@@ -287,7 +287,7 @@ Apify.main(async () => {
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
-				console.log(' --- processing a search page');	
+				//console.log(' --- processing a search page');	
 				// we need to wait till 				
 				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
 				/*do {
@@ -318,7 +318,7 @@ Apify.main(async () => {
 					} catch(error){
 						console.log(`\nNo companies number found for ${request.url}:\n` , error);
 					} 
-					console.log('Companies for base search page: ', companies_for_base_search_page);
+					//console.log('Companies for base search page: ', companies_for_base_search_page);
 					console.log('Total companies found: ', total_companies, '\n ******************');
 					if (  companies_for_base_search_page > 10) { // we create paging sub-requests 
 						let max_page = companies_for_base_search_page > 300 ? 30 : Math.ceil(companies_for_base_search_page / 10); 
@@ -334,7 +334,7 @@ Apify.main(async () => {
 							
 							//total_companies += amount
 						}
-						console.log('paging sub-requests to ', request.url.split('?')[1]);
+						//console.log('paging sub-requests to ', request.url.split('?')[1]);
 						for (let i = 2; i <= max_page ; i++) { 
 							let url = request.url + '&page=' + i.toString()					
 							requestQueue.addRequest({ url: url });					
@@ -378,7 +378,7 @@ Apify.main(async () => {
 				//addLinksToRequestQueue(links_found2, requestQueue); 
 			
 			} else { // processing company page 
-				console.log(' --- processing a company page:', request.url.split('/companies')[1]);
+				//console.log(' --- processing a company page:', request.url.split('/companies')[1]);
 				page_content='';
 				try {
 					//gather_info_into_dataset(page);
@@ -482,7 +482,7 @@ Apify.main(async () => {
 						} catch(error){
 							console.log(`\nFailure to get website  for url: ${request.url}: `, error);
 						} 
-						console.log(`Company for ${request.url}: ${company_name}`);
+						//console.log(`Company for ${request.url}: ${company_name}`);
 						var product_services = '';
 						var industry = '';
 						try {
@@ -556,7 +556,7 @@ Apify.main(async () => {
 				} catch (e) { console.log(e); }				
 			}  			
 			// let's check login 
-			console.log('We check before leaving the page...');
+			//console.log('We check before leaving the page...');
 			if (page_content) {
 				login_check = await check_if_logged_in(page, page_content);			
 			} else {
@@ -572,9 +572,9 @@ Apify.main(async () => {
 				login_failure_counter += 1;
 			}	
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
-			console.log('RequestQueue\n handled:', handledRequestCount);
-			console.log(' pending:', pendingRequestCount);
-			console.log(' total:'  , totalRequestCount);		
+			console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
+			//console.log();
+			//console.log();		
         },
         handleFailedRequestFunction: async ({ request }) => {
             console.log(`Request ${request.url} failed too many times`);
