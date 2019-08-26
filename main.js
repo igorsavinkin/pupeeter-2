@@ -73,7 +73,7 @@ Apify.main(async () => {
 	// we get input from 'default' store (init variables from INPUT json file)
 	
 	//const store = await Apify.openKeyValueStore();	
-	const input = await Apify.getValue('INPUT-DE-50-200'); 
+	const input = await Apify.getValue('INPUT'); 
 	console.log('input:', input);
 	console.log('input.account_exceptions:', input.account_exceptions);
 	process.exit();
