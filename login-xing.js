@@ -62,7 +62,7 @@ async function login_page(page, username="", password="", cookieFile="") {
 		await page.click('button[type="submit"]'); 
 	} 
 	await page.waitForNavigation({ waitUntil: 'networkidle0' });	 
-	console.log('After (re)login_page():\n Page url :', await page.url())
+	console.log('After (re)login_page(), account (', username ,') :\n Page url :', await page.url())
 	//let page_url = ; 
 	//let page_content = await page.content();
 	//console.log('  Page content size :', page_content.length );
