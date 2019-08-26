@@ -76,7 +76,6 @@ Apify.main(async () => {
 	const input = await Apify.getValue('INPUT'); 
 	console.log('input:', input);
 	console.log('input.account_exceptions:', input.account_exceptions);
-	process.exit();
 	
 	var base_name = input.dataset_name;
 	console.log('base_name:', base_name);
