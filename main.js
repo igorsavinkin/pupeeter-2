@@ -73,8 +73,10 @@ Apify.main(async () => {
 	// we get input from 'default' store (init variables from INPUT json file)
 	
 	//const store = await Apify.openKeyValueStore();	
-	const input = await Apify.getValue('INPUT'); 
+	const input = await Apify.getValue('INPUT-DE-50-200'); 
 	console.log('input:', input);
+	console.log('input.account_exceptions:', input.account_exceptions);
+	process.exit();
 	
 	var base_name = input.dataset_name;
 	console.log('base_name:', base_name);
@@ -84,7 +86,7 @@ Apify.main(async () => {
 	var concurrency =  parseInt(input.concurrency);
 	var account_index;
 	if (!input.account_index) {
-		account_index = get_account_index();
+		account_index = get_account_index(input.account_exceptions);
 	} else {
 		account_index = input.account_index;
 	}	
@@ -145,18 +147,28 @@ Apify.main(async () => {
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);		
 	
-	try{ // add request urls from input.zero_pages_search_file 
+	try{ // add request urls from no_links_search_url_dataset
 		if (no_links_search_url_dataset){	
-			console.log(`Reading dataset with zero pages` );
+			console.log(`Reading "no links searches dataset"` );
 			await no_links_search_url_dataset.forEach(async (item, index) => {
-				console.log(`Added in queue item at ${index}: ${JSON.stringify(item)}`);
+				//console.log(`Added in queue item at ${index}: ${JSON.stringify(item)}`);
 				requestQueue.addRequest({ url: item['url'].trim() });
 				counter+=1;				
 			});	
-			console.log(`${counter} url(s) been added from the zero pages dataset.`);			 
+			console.log(`${counter} url(s) been added from the "no links searches dataset".`);			 
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
-
+	try{ // add request urls from wrong_website_dataset 
+		if (wrong_website_dataset){	
+			console.log(`Reading "wrong website dataset"` );
+			await wrong_website_dataset.forEach(async (item, index) => {
+				//console.log(`Added in queue item at ${index}: ${JSON.stringify(item)}`);
+				requestQueue.addRequest({ url: item['url'].trim() });
+				counter+=1;				
+			});	
+			console.log(`${counter} url(s) been added from the "wrong website dataset".`);			 
+		}
+	} catch (e) { console.log('Error reading file with zero pages:',e); }
 	/*if (input.crawl.landern){		
 		let landern = input.crawl.landern.split(',');
 		console.log(`\nAdding requests from input [Deutschen] landern (${landern.length}).`);
@@ -248,14 +260,14 @@ Apify.main(async () => {
 			if ( login_failure_counter >= concurrency*2 - 1 ) {
 				login_failure_counter = 0; // we reset login_failure_counter
 				// changing account 				
-				let new_account_index = get_account_index();
+				let new_account_index = get_account_index(input.account_exceptions);
 				do {
-					new_account_index = get_account_index();
+					new_account_index = get_account_index(input.account_exceptions);
 				} 
 				while (new_account_index == account_index);
 				account_index = new_account_index;
 				account = input.account[account_index];
-				console.log(`We have changed account to "${account.username}", account number ${account_index}.`)
+				console.log(`Account is changed to "${account.username}", account number ${account_index}.`)
 			}
 			if (!login_flag){
 				try{
@@ -340,29 +352,17 @@ Apify.main(async () => {
 					}
 				}
 				// gather company links
-				//await page.reload();
-				page_content = await page.content();
-				// checking 
-				/*if (page_content.includes('class="Me-Me')){
-					console.log('Found `class="Me-Me`');
-					login_flag=true;
-				}*/
-				
+				page_content = await page.content(); 				
 				links_found = findAll(main_link_regex, page_content);
 				 
 				for (elem of links_found) { 
 					if ( !elem.startsWith('https://www.xing.com')){
 						let new_elem = 'https://www.xing.com'+elem;
 						links_found.delete(elem);
-						links_found.add(new_elem);
-						//total_page_links.add(new_elem);
-					} /*else {
-						total_page_links.add(elem);
-					}	*/							
-				}
-				//await links_store.setValue('scraped_urls', links_found );
-				console.log('FOUND LINKS at "'+ request.url.split('companies_search_button&')[1] +'": (', links_found.size, ')'); //\n', links_found );		
-				// console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );	
+						links_found.add(new_elem); 
+					}							
+				}				
+				console.log('FOUND LINKS at "'+ request.url.split('companies_search_button&')[1] +'": (', links_found.size, ')'); 	
 				// process  pages with 0 links found
 				if (links_found.size==0){
 					empty_req[counter] = request.url;
@@ -554,24 +554,23 @@ Apify.main(async () => {
 			}  			
 			// let's check login and get statistics every 5th time
 			//console.log('We check before leaving the page...');
-			if (!(counter % 5)) {
-				if (page_content) {
-					login_check = await check_if_logged_in(page, page_content);			
-				} else {
-					login_check = await check_if_logged_in(page);
-				}
-				if (login_check){
-					console.log(`Logged "${login_check}", account: ${account_index}.`);			
-					login_flag = true;
-					 
-				} else {
-					console.log('Warning! Not logged-in for the page!');
-					login_flag = false; 
-					login_failure_counter += 1;
-				}	
-				var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
-				console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
+			
+			if (page_content) {
+				login_check = await check_if_logged_in(page, page_content);			
+			} else {
+				login_check = await check_if_logged_in(page);
 			}
+			if (login_check){
+				console.log(`Logged "${login_check}", account: ${account_index}.`);			
+				login_flag = true;				 
+			} else {
+				console.log('Warning! Not logged-in for the page!');
+				login_flag = false; 
+				login_failure_counter += 1;
+			}	
+			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
+			console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
+			
 			//console.log();
 			//console.log();		
         },
