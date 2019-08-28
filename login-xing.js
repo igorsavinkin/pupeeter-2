@@ -13,6 +13,15 @@ function login_by_cookie_sync(browser, close=0, url='https://www.xing.com'){
 		.then( () => { if (close) { browser.close(); } });
     });	
 }
+
+/*function login_account(browser, close=0, url='https://www.xing.com'){
+	browser.newPage()
+    .then(page => {
+        login_page(page)
+	    .then( () => check_if_logged_in(page)) 
+    });	
+}*/
+
 function print_cookie(cookies, amount_only=false){	
 	if (!amount_only){
 		for (let i=0; i < cookies.length; i++){
@@ -127,12 +136,14 @@ async function login(username="", password="", cookieFile="cookies.json", close_
 			if (err){
 				console.log('Failure!\nThe json session file could not be written.', err);
 			} else {
-				console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
+				//console.log('Success!!!\nSession has been successfully saved.\nCookie file:', cookiesFilePath);
 			}
 		});
 	if (close_browser) {
+		//console.log('Last page url:', page.url());
+		let page_url = page.url();
 		await browser.close();
-		return 0;
+		return page_url;
 	} else {
 		return page;
 	}

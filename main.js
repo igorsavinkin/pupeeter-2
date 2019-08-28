@@ -68,24 +68,31 @@ function get_account_index(exceptions=[3,5,7,9]){
 	while (exceptions.includes(account_index));
 	return account_index
 }
-
+ 
 Apify.main(async () => {   
 	// we get input from 'default' store (init variables from INPUT json file)
 	
 	//const store = await Apify.openKeyValueStore();	
 	const input = await Apify.getValue('INPUT'); 
 	console.log('input:', input);
-	console.log('input.account_exceptions:', input.account_exceptions);
+	
 	
 	var base_name = input.dataset_name;
 	console.log('base_name:', base_name);
-	
+	var accounts_deactivated;
+	if (!input.account_exceptions) {		
+		require('./accounts_check.js');
+		accounts_deactivated = await check_non_active_accounts(input.account);
+	} else {
+		console.log('input.account_exceptions:', );
+		accounts_deactivated = input.account_exceptions;
+	}
 	//process.exit();
 	
 	var concurrency =  parseInt(input.concurrency);
 	var account_index;
 	if (!input.account_index) {
-		account_index = get_account_index(input.account_exceptions);
+		account_index = get_account_index(accounts_deactivated); //input.account_exceptions);
 	} else {
 		account_index = input.account_index;
 	}	
@@ -256,12 +263,12 @@ Apify.main(async () => {
 		launchPuppeteerOptions: { slowMo: 50 , stealth: true } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
 			// check login_failure_counter
-			if ( login_failure_counter >= concurrency*2 - 1 ) {
+			if ( login_failure_counter > concurrency ) {
 				login_failure_counter = 0; // we reset login_failure_counter
 				// changing account 				
-				let new_account_index = get_account_index(input.account_exceptions);
+				let new_account_index = get_account_index(accounts_deactivated);
 				do {
-					new_account_index = get_account_index(input.account_exceptions);
+					new_account_index = get_account_index(accounts_deactivated);
 				} 
 				while (new_account_index == account_index);
 				account_index = new_account_index;
@@ -311,18 +318,19 @@ Apify.main(async () => {
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 						let companies_num = await (await result.getProperty('textContent')).jsonValue();
-						//console.log('\n comp number:', companies_num);
+						console.log('\n comp number (for that page):', companies_num);
 						let amount = parseInt(companies_num.replace(',', '').replace('.', ''));				
 						if (!amount && (companies_num.includes('One company') || companies_num.includes('Ein Unternehmen')) ) { 
 							amount=1; 
 						}
 						if (amount){
-							//console.log('\nFound amount:', amount);
+							console.log('\nFound amount:', amount);
 							companies_for_base_search_page = amount;
 							total_companies += amount;				
-						} /*else {
+						} else {
+							companies_for_base_search_page = 0;
 							console.log('Companies amount is empty.'); 
-						}*/
+						}
 					} catch(error){
 						console.log(`\nNo companies number found for ${request.url}:\n` , error);
 					} 
@@ -331,7 +339,7 @@ Apify.main(async () => {
 					if (  companies_for_base_search_page > 10) { // we create paging sub-requests 
 						let max_page = companies_for_base_search_page > 300 ? 30 : Math.ceil(companies_for_base_search_page / 10); 
 						if (max_page*10 < companies_for_base_search_page) {
-							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
+							console.log(`!!! Warning, for the request ${request.url} the number of companies is ${companies_for_base_search_page}`);							
 							oversise_req[request.url.split('?')[1]]=total_companies;
 							try{ 
 								await oversized_search_dataset.pushData({
