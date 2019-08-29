@@ -46,7 +46,7 @@ function addLinksToRequestQueue(links, requestQueue){
 		//let check_flag = true;
 		//check_flag = check_link(elem); 
 		if (check_link(elem)){
-			requestQueue.addRequest({ url: elem });
+			requestQueue.addRequest({ url: elem }, {forefront : true});
 			//console.log(' - added:', elem);
 		} else {
 			//console.log(` - Not added: ${elem}`);
@@ -68,24 +68,37 @@ function get_account_index(exceptions=[3,5,7,9]){
 	while (exceptions.includes(account_index));
 	return account_index
 }
-
-Apify.main(async () => {  
-	var base_name = 'AT-CH-50-200';
+ 
+Apify.main(async () => {   
 	// we get input from 'default' store (init variables from INPUT json file)
-	const store = await Apify.openKeyValueStore();	
-	const input = await store.getValue('INPUT-'+base_name);
-	//console.log('input:', input);
+	
+	//const store = await Apify.openKeyValueStore();	
+	const input = await Apify.getValue('INPUT-DE-50-200'); 
+	console.log('input:', input);
+	
+	
+	var base_name = input.dataset_name;
+	console.log('base_name:', base_name);
+	var accounts_deactivated;
+	if (!input.account_exceptions) {		
+		require('./accounts_check.js');
+		accounts_deactivated = await check_non_active_accounts(input.account);
+	} else {
+		console.log('input.account_exceptions:', );
+		accounts_deactivated = input.account_exceptions;
+	}
+	//process.exit();
 	
 	var concurrency =  parseInt(input.concurrency);
 	var account_index;
 	if (!input.account_index) {
-		account_index = get_account_index();
+		account_index = get_account_index(accounts_deactivated); //input.account_exceptions);
 	} else {
 		account_index = input.account_index;
 	}	
 	var account = input.account[account_index]; // input.account_index];
 	var page_handle_max_wait_time = parseInt( input.page_handle_max_wait_time);
-	var max_requests_per_crawl =  parseInt( input.max_requests_per_crawl); 
+	var max_requests_per_crawl = parseInt( input.max_requests_per_crawl); 
 	var dataset_name  =  input.dataset_name;
 	var queue_name  =  input.queue_name;
 	var country_parameters='';
@@ -128,6 +141,8 @@ Apify.main(async () => {
 	// dataset
 	const dataset = await Apify.openDataset(dataset_name);
 	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
+	const no_links_search_url_dataset = await Apify.openDataset('no-links-searches-'+base_name);
+	const oversized_search_dataset = await Apify.openDataset('no-links-searches-'+base_name);
 	// Open existing queue
 	console.log(`Opening queue "${queue_name}"...`);
     const requestQueue = await Apify.openRequestQueue(queue_name);  
@@ -138,25 +153,28 @@ Apify.main(async () => {
 	console.log(' pendingRequestCount:', pendingRequestCount);
 	console.log(' totalRequestCount:'  , totalRequestCount);		
 	
-	try{ // add request urls from input.zero_pages_search_file 
-		if (input.zero_pages_search_file){	
-			//console.log(`Reading file with zero pages` );	
-			let contents = fs.readFileSync(input.zero_pages_search_file, 'utf8');
-			if (contents!='') {
-				let urls = contents.split('\n');
-				console.log(`Urls from '${input.zero_pages_search_file}' file to be added to the queue (${urls.length})\n`, urls); 
-				let i, counter=0;
-				for (i = 0; i < urls.length; i++) { 
-					if (urls[i]){
-						requestQueue.addRequest({ url: urls[i].trim() });
-						counter+=1;
-					}
-				} 
-				console.log(`${counter} url(s) been added from the zero pages file.`);
-			}
+	try{ // add request urls from no_links_search_url_dataset
+		if (no_links_search_url_dataset){	
+			console.log(`Reading "no links searches dataset"` );
+			await no_links_search_url_dataset.forEach(async (item, index) => {
+				//console.log(`Added in queue item at ${index}: ${JSON.stringify(item)}`);
+				requestQueue.addRequest({ url: item['url'].trim() });
+				counter+=1;				
+			});	
+			console.log(`${counter} url(s) been added from the "no links searches dataset".`);			 
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
-
+	try{ // add request urls from wrong_website_dataset 
+		if (wrong_website_dataset){	
+			console.log(`Reading "wrong website dataset"` );
+			await wrong_website_dataset.forEach(async (item, index) => {
+				//console.log(`Added in queue item at ${index}: ${JSON.stringify(item)}`);
+				requestQueue.addRequest({ url: item['url'].trim() });
+				counter+=1;				
+			});	
+			console.log(`${counter} url(s) been added from the "wrong website dataset".`);			 
+		}
+	} catch (e) { console.log('Error reading file with zero pages:',e); }
 	/*if (input.crawl.landern){		
 		let landern = input.crawl.landern.split(',');
 		console.log(`\nAdding requests from input [Deutschen] landern (${landern.length}).`);
@@ -242,20 +260,20 @@ Apify.main(async () => {
 		retireInstanceAfterRequestCount: input.retireInstanceAfterRequestCount,
 		maxRequestsPerCrawl: max_requests_per_crawl,
         maxConcurrency: concurrency,
-		launchPuppeteerOptions: { slowMo: 50, stealth: true } , 
+		launchPuppeteerOptions: { slowMo: 50 , stealth: true } , 
 		gotoFunction: async ({ request, page, puppeteerPool }) => {
 			// check login_failure_counter
-			if ( login_failure_counter >= concurrency*2 - 1 ) {
+			if ( login_failure_counter > concurrency ) {
 				login_failure_counter = 0; // we reset login_failure_counter
 				// changing account 				
-				let new_account_index = get_account_index();
+				let new_account_index = get_account_index(accounts_deactivated);
 				do {
-					new_account_index = get_account_index();
+					new_account_index = get_account_index(accounts_deactivated);
 				} 
 				while (new_account_index == account_index);
 				account_index = new_account_index;
 				account = input.account[account_index];
-				console.log(`We have changed account to "${account.username}", account number ${account_index}.`)
+				console.log(`Account is changed to "${account.username}", account number ${account_index}.`)
 			}
 			if (!login_flag){
 				try{
@@ -270,10 +288,7 @@ Apify.main(async () => {
 					}  
 					
 				} catch(e){ console.log('Error login_page():', e); }
-			}
-			// Utility function which strips the variable
-			// from window.navigator object
-			await Apify.utils.puppeteer.hideWebDriver(page); // 
+			} 			
 			const response = page.goto(request.url, { timeout: 70000 }).catch(() => null);
 			if (!response) {
 				//await puppeteerPool.retire(page.browser());				
@@ -287,7 +302,7 @@ Apify.main(async () => {
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
-				console.log(' --- processing a search page');	
+				//console.log(' --- processing a search page');	
 				// we need to wait till 				
 				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
 				/*do {
@@ -303,37 +318,39 @@ Apify.main(async () => {
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
 						let companies_num = await (await result.getProperty('textContent')).jsonValue();
-						//console.log('\n comp number:', companies_num);
+						console.log('\n comp number (for that page):', companies_num);
 						let amount = parseInt(companies_num.replace(',', '').replace('.', ''));				
 						if (!amount && (companies_num.includes('One company') || companies_num.includes('Ein Unternehmen')) ) { 
 							amount=1; 
 						}
 						if (amount){
-							//console.log('\nFound amount:', amount);
+							console.log('\nFound amount:', amount);
 							companies_for_base_search_page = amount;
 							total_companies += amount;				
-						} /*else {
+						} else {
+							companies_for_base_search_page = 0;
 							console.log('Companies amount is empty.'); 
-						}*/
+						}
 					} catch(error){
 						console.log(`\nNo companies number found for ${request.url}:\n` , error);
 					} 
-					console.log('Companies for base search page: ', companies_for_base_search_page);
+					//console.log('Companies for base search page: ', companies_for_base_search_page);
 					console.log('Total companies found: ', total_companies, '\n ******************');
 					if (  companies_for_base_search_page > 10) { // we create paging sub-requests 
 						let max_page = companies_for_base_search_page > 300 ? 30 : Math.ceil(companies_for_base_search_page / 10); 
 						if (max_page*10 < companies_for_base_search_page) {
-							console.log(`!!! Warning, for the request with keyword {$request.url} the number of companies is {$total_companies}`);							
+							console.log(`!!! Warning, for the request ${request.url} the number of companies is ${companies_for_base_search_page}`);							
 							oversise_req[request.url.split('?')[1]]=total_companies;
 							try{ 
-								fs.appendFile(input.oversized_search_file, '\n'+request.url , function (err) {
-									if (err) {console.log(`Failure to save ${request.url} into ${input.oversized_search_file}`)}; 
-								});	
+								await oversized_search_dataset.pushData({
+									url: request.url
+								});
+								
 							} catch (e) {console.log(`Failure to write to "${input.oversized_search_file}"...\nPlease check if file exists.`);}	
 							
 							//total_companies += amount
 						}
-						console.log('paging sub-requests to ', request.url.split('?')[1]);
+						//console.log('paging sub-requests to ', request.url.split('?')[1]);
 						for (let i = 2; i <= max_page ; i++) { 
 							let url = request.url + '&page=' + i.toString()					
 							requestQueue.addRequest({ url: url });					
@@ -342,46 +359,30 @@ Apify.main(async () => {
 					}
 				}
 				// gather company links
-				//await page.reload();
-				page_content = await page.content();
-				/*fs.writeFile("temp_page_content.html", page_content, (err) => {
-				    if (err) console.log(err);
-				    console.log("Successfully written page content to File 'temp_page_content.txt'.");
-				});*/  
-				// checking 
-				/*if (page_content.includes('class="Me-Me')){
-					console.log('Found `class="Me-Me`');
-					login_flag=true;
-				}*/
-				
+				page_content = await page.content(); 				
 				links_found = findAll(main_link_regex, page_content);
 				 
 				for (elem of links_found) { 
 					if ( !elem.startsWith('https://www.xing.com')){
 						let new_elem = 'https://www.xing.com'+elem;
 						links_found.delete(elem);
-						links_found.add(new_elem);
-						//total_page_links.add(new_elem);
-					} /*else {
-						total_page_links.add(elem);
-					}	*/							
-				}
-				//await links_store.setValue('scraped_urls', links_found );
-				console.log('FOUND LINKS at "'+ request.url.split('companies_search_button&')[1] +'": (', links_found.size, ')'); //\n', links_found );		
-				// console.log('TOTAL LINKS GATHERED:',   total_page_links.size  );	
+						links_found.add(new_elem); 
+					}							
+				}				
+				console.log('FOUND LINKS at "'+ request.url.split('companies_search_button&')[1] +'": (', links_found.size, ')'); 	
 				// process  pages with 0 links found
 				if (links_found.size==0){
 					empty_req[counter] = request.url;
-					fs.appendFile(input.zero_pages_search_file, "\n"+request.url , function (err) {
-					    if (err) {console.log(`Failure to save ${request.url} into ${input.zero_pages_search_file}`)}; 
-					});	
+					await no_links_search_url_dataset.pushData({ 
+						url: request.url 
+					});
 				}
 				// save company links into requestQueue
 				addLinksToRequestQueue(links_found, requestQueue); // The queue can only contain unique URLs.
 				//addLinksToRequestQueue(links_found2, requestQueue); 
 			
 			} else { // processing company page 
-				console.log(' --- processing a company page:', request.url.split('/companies')[1]);
+				//console.log(' --- processing a company page:', request.url.split('/companies')[1]);
 				page_content='';
 				try {
 					//gather_info_into_dataset(page);
@@ -485,7 +486,7 @@ Apify.main(async () => {
 						} catch(error){
 							console.log(`\nFailure to get website  for url: ${request.url}: `, error);
 						} 
-						console.log(`Company for ${request.url}: ${company_name}`);
+						//console.log(`Company for ${request.url}: ${company_name}`);
 						var product_services = '';
 						var industry = '';
 						try {
@@ -558,8 +559,9 @@ Apify.main(async () => {
 					}
 				} catch (e) { console.log(e); }				
 			}  			
-			// let's check login 
-			console.log('We check before leaving the page...');
+			// let's check login and get statistics every 5th time
+			//console.log('We check before leaving the page...');
+			
 			if (page_content) {
 				login_check = await check_if_logged_in(page, page_content);			
 			} else {
@@ -567,17 +569,17 @@ Apify.main(async () => {
 			}
 			if (login_check){
 				console.log(`Logged "${login_check}", account: ${account_index}.`);			
-				login_flag = true;
-				 
+				login_flag = true;				 
 			} else {
 				console.log('Warning! Not logged-in for the page!');
 				login_flag = false; 
 				login_failure_counter += 1;
 			}	
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
-			console.log('RequestQueue\n handled:', handledRequestCount);
-			console.log(' pending:', pendingRequestCount);
-			console.log(' total:'  , totalRequestCount);		
+			console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
+			
+			//console.log();
+			//console.log();		
         },
         handleFailedRequestFunction: async ({ request }) => {
             console.log(`Request ${request.url} failed too many times`);
@@ -592,15 +594,7 @@ Apify.main(async () => {
 	if (input.deleteQueue) {
 		console.log('\nDeleting requestQueue');
 		await requestQueue.delete();
-	}
-	/*
-	// write total_page_links into file 
-	var json = JSON.stringify(total_page_links);
-	//fs.writeFile('total_page_links.json', json, 'utf8');
-	fs.writeFile("total_page_links.json", JSON.stringify(total_page_links, null, 4), (err) => {
-		if (err) {  console.error(err);  return; };
-		console.log("File 'total_page_links.json' has been created");
-	});*/
+	}	
 	
 	// print final queue
 	var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();

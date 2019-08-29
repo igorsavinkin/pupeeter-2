@@ -98,6 +98,29 @@ async function login_page(page, username="", password="", cookieFile="") {
 	}
 	return login_check;
 }
+async function login_page_simple(page, username="", password=""){	 
+	try {      // regular login
+		await page.goto('https://www.xing.com/signup?login=1', { waitUntil: 'networkidle0' }); // wait until page load
+		await page.type('input[name="login_form[username]"]', username);
+		await page.type('input[name="login_form[password]"]', password);
+		await page.evaluate(() => {
+				document.getElementsByTagName('button')[1].click();
+			});
+	} catch(e){  //trying to relogin, another formm		
+		await page.click('input[name="username"]', {clickCount: 3});
+		await page.type('input[name="username"]',  username);
+		await page.type('input[name="password"]',  password);
+		await page.click('button[type="submit"]'); 
+	} 
+	await page.waitForNavigation({ waitUntil: 'networkidle0' });	 
+	console.log('After login_page_simple()\n  account:', username ,'\n  page url:', await page.url())
+	//let page_url = ; 
+	//let page_content = await page.content();
+	//console.log('  Page content size :', page_content.length );
+	var login_check = await check_if_logged_in(page);
+	console.log('  login result:', login_check );
+	return login_check;
+}
 
 async function login(username="", password="", cookieFile="cookies.json", close_browser=1, slow_down_ms=50) {
 	if (!username) {
