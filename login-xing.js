@@ -208,6 +208,7 @@ function set_cookie(page) {
 global.set_cookie = set_cookie;
 global.login = login;
 global.login_page = login_page;
+global.login_page_simple = login_page_simple;
 global.login_by_cookie_sync = login_by_cookie_sync;
 global.check_if_logged_in = check_if_logged_in;
 global.print_cookie=print_cookie;

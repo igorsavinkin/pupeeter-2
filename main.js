@@ -60,15 +60,24 @@ function randomInteger(min, max) {
     return Math.floor(rand);
   }
 
-function get_account_index(exceptions=[3,5,7,9]){
+function get_account_index(accounts_deactivated = new Set()){
 	let account_index;
 	do {
 		account_index =	randomInteger(0,9)
 	} 
-	while (exceptions.includes(account_index));
+	while (accounts_deactivated.has(account_index));
 	return account_index
 }
- 
+function change_account(account_index, account, all_accounts, accounts_deactivated){
+	let new_account_index = get_account_index(accounts_deactivated);
+	do {
+		new_account_index = get_account_index(accounts_deactivated);
+	} 
+	while (new_account_index == account_index); 
+	console.log(`Account is changed to `+ all_accounts[new_account_index].username + ` account index: ${account_index}.`);		
+	return new_account_index;
+}
+
 Apify.main(async () => {   
 	// we get input from 'default' store (init variables from INPUT json file)
 	
@@ -79,13 +88,13 @@ Apify.main(async () => {
 	
 	var base_name = input.dataset_name;
 	console.log('base_name:', base_name);
-	var accounts_deactivated;
+	var accounts_deactivated = new Set();
 	if (!input.account_exceptions) {		
 		require('./accounts_check.js');
 		accounts_deactivated = await check_non_active_accounts(input.account);
 	} else {
-		console.log('input.account_exceptions:', );
-		accounts_deactivated = input.account_exceptions;
+		console.log('input.account_exceptions:', input.account_exceptions);
+		accounts_deactivated = new Set( input.account_exceptions) ;
 	}
 	//process.exit();
 	
@@ -104,6 +113,13 @@ Apify.main(async () => {
 	var country_parameters='';
 	var empl_cat_parameters='';
 	var wrong_website_dict = {};
+	var account_validity = {};
+	// fill out `account_validity` with init values
+	for(let i in input.account){
+		account_validity[parseInt(i)] = 3; 
+	}
+	console.log(account_validity);
+	//process.exit();
 	
 	// get countries and employees size from INPUT
 	if ( input.hasOwnProperty('crawl') ) { 		
@@ -265,8 +281,10 @@ Apify.main(async () => {
 			// check login_failure_counter
 			if ( login_failure_counter > concurrency ) {
 				login_failure_counter = 0; // we reset login_failure_counter
-				// changing account 				
-				let new_account_index = get_account_index(accounts_deactivated);
+				// changing account 
+				account_index = change_account(account_index, account, input.account, accounts_deactivated);
+				account = input.account[account_index];
+				/*let new_account_index = get_account_index(accounts_deactivated);
 				do {
 					new_account_index = get_account_index(accounts_deactivated);
 				} 
@@ -274,16 +292,30 @@ Apify.main(async () => {
 				account_index = new_account_index;
 				account = input.account[account_index];
 				console.log(`Account is changed to "${account.username}", account number ${account_index}.`)
+				*/
 			}
-			if (!login_flag){
-				try{
-					console.log('Start logging in...');	
-					console.log('  page.url():', page.url());					
-					login_res = await login_page(page, account.username, account.password);	
+			while (!login_flag){		 
+				try{					
+					console.log('Start logging in with account', account_index, account.username);	
+					//console.log('  page.url():', page.url());					
+					login_res = await login_page_simple(page, account.username, account.password);	
 					if (login_res){ 
 						console.log(`Success to log in with "${login_res}"\n`);			
 						login_flag = true;
 					} else {
+						//change account validity
+						account_validity[account_index] -= 1;
+						console.log('Accounts validity:', account_validity);
+						if (account_validity[account_index] <= 0) {
+							console.log('Account ', account_index, 'has validity ', account_validity[account_index]);
+							console.log(' and will be disabled/deactivated.');
+							accounts_deactivated.add(account_index);
+							
+							account_index = change_account(account_index, account, input.account, accounts_deactivated);
+							account = input.account[account_index]; 
+							console.log('New account:', account_index, account.username);
+							console.log('accounts_deactivated:', accounts_deactivated);
+						}
 						console.log(`Failure to log in... with account ${account.username}.\n` );  
 					}  
 					
