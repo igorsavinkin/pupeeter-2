@@ -3,8 +3,7 @@ const Apify = require('apify');
 const puppeteer = require('puppeteer');
 require('./login-xing.js');
 
-var login_flag = false;
-var total_page_links = new Set();
+var login_flag = false; 
 var re_turnover = new RegExp(/Umsatz.*?[\d,]+.*?[€$]/);
 var re_employees = new RegExp(/\d+,?\.?\d+/);
 var empty_req = {};
@@ -638,8 +637,7 @@ Apify.main(async () => {
 	console.log('Oversized requests:', oversise_req);
 	
 	console.log('\n******** Results ********');
-	console.log('TOTAL COMPANY LINKS number: ', total_companies);  
-	console.log('TOTAL GATHERED LINKS number:', total_page_links.size  );
+	console.log('TOTAL COMPANY LINKS number: ', total_companies);   
 	
 	const data = await dataset.getData().then((response) => response.items);
 	await Apify.setValue(input.output, data);
