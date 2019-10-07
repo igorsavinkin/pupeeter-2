@@ -1,4 +1,3 @@
-const fs = require('fs');	
 const Apify = require('apify');
 const puppeteer = require('puppeteer');
 require('./login-xing.js');
@@ -78,13 +77,10 @@ function change_account(account_index, account, all_accounts, accounts_deactivat
 }
 
 Apify.main(async () => {   
-	// we get input from 'default' store (init variables from INPUT json file)
-	
-	//const store = await Apify.openKeyValueStore();	
+	// we get input from 'default' store (init variables from INPUT json file)	
 	const input = await Apify.getValue('INPUT'); 
 	console.log('input:', input);
-	
-	
+	// Init settings from the INPUT file
 	var base_name = input.dataset_name;
 	console.log('base_name:', base_name);
 	var accounts_deactivated = new Set();
@@ -94,13 +90,11 @@ Apify.main(async () => {
 	} else {
 		console.log('input.account_exceptions:', input.account_exceptions);
 		accounts_deactivated = new Set( input.account_exceptions) ;
-	}
-	//process.exit();
-	
+	}	
 	var concurrency =  parseInt(input.concurrency);
 	var account_index;
 	if (!input.account_index) {
-		account_index = get_account_index(accounts_deactivated); //input.account_exceptions);
+		account_index = get_account_index(accounts_deactivated);
 	} else {
 		account_index = input.account_index;
 	}	
@@ -111,14 +105,13 @@ Apify.main(async () => {
 	var queue_name  =  input.queue_name;
 	var country_parameters='';
 	var empl_cat_parameters='';
-	var wrong_website_dict = {};
-	var account_validity = {};
+	
 	// fill out `account_validity` with init values
+	var account_validity = {};
 	for(let i in input.account){
 		account_validity[parseInt(i)] = 3; 
 	}
 	console.log(account_validity);
-	//process.exit();
 	
 	// get countries and employees size from INPUT
 	if ( input.hasOwnProperty('crawl') ) { 		
@@ -137,31 +130,28 @@ Apify.main(async () => {
 	var init_base_req = 'https://www.xing.com/search/companies?sc_o=companies_search_button';
 	var base_req = init_base_req + country_parameters + empl_cat_parameters;	
 	var base_req_land = init_base_req + empl_cat_parameters;
-	console.log('base_req:', [base_req]);
-	console.log('base_req_land:', [base_req_land]);
-	//process.exit();
+	//console.log('base_req:', [base_req]);
+	//console.log('base_req_land:', [base_req_land]); 
 	
 	// utility variables
 	var links_found = {};
-	var links_found2 = {};
-	var links_found_short = {};
-	var links_found_short2 = {};
 	const main_link_regex = /(https:\/\/www\.xing\.com)?\/(company|companies)\/[%.\w|-]+/g;
 	var page_content='';
 	var companies_for_base_search_page = 0;
 	var total_companies = 0;
-	var counter = 0;	
+	var counter = 0; # counts total pages that crawler handled at a run	
 	var push_data = true;
 	var login_failure_counter = 0;
-	// dataset
+	
+	// Open datasets. If not existing, Apify SDK creates them
 	const dataset = await Apify.openDataset(dataset_name);
 	const wrong_website_dataset = await Apify.openDataset('wrong-website-'+base_name);
 	const no_links_search_url_dataset = await Apify.openDataset('no-links-searches-'+base_name);
 	const oversized_search_dataset = await Apify.openDataset('no-links-searches-'+base_name);
-	// Open existing queue
+	// Open existing queue - requestQueue
 	console.log(`Opening queue "${queue_name}"...`);
-    const requestQueue = await Apify.openRequestQueue(queue_name);  
-	// queue info
+        const requestQueue = await Apify.openRequestQueue(queue_name);  
+	// print requestQueue info
 	var { totalRequestCount, handledRequestCount, pendingRequestCount, name } = await requestQueue.getInfo();
 	console.log(`Init Request Queue "${name}" with init requests:` );
 	console.log(' handledRequestCount:', handledRequestCount);
@@ -190,17 +180,7 @@ Apify.main(async () => {
 			console.log(`${counter} url(s) been added from the "wrong website dataset".`);			 
 		}
 	} catch (e) { console.log('Error reading file with zero pages:',e); }
-	/*if (input.crawl.landern){		
-		let landern = input.crawl.landern.split(',');
-		console.log(`\nAdding requests from input [Deutschen] landern (${landern.length}).`);
-		console.log('Landern indexes:', landern); 
-		let i;		
-		for (i = 0; i < landern.length  ; i++) {  	
-			let url = base_req_land + "&filter.location[]=" + landern[i].trim(); 
-			await requestQueue.addRequest({ url: url });
-		} 
-		console.log(`${i} url(s) been added from 'landern' input.`);
-	}*/
+
 	// add request urls from input based landern composed with letters OR only letters
 	if (input.letters){	
 		let letters = input.letters.split(','); //console.log('letters:', letters); 
@@ -239,7 +219,6 @@ Apify.main(async () => {
 		}
 		console.log(`\n${counter} url(s) have been added from 'landern_only' input`); 
 	}	
-	//process.exit();
 	// add request urls from input - `init_urls`
 	if (input.init_urls){		
 		let init_urls = input.init_urls.split(',');
@@ -282,16 +261,7 @@ Apify.main(async () => {
 				login_failure_counter = 0; // we reset login_failure_counter
 				// changing account 
 				account_index = change_account(account_index, account, input.account, accounts_deactivated);
-				account = input.account[account_index];
-				/*let new_account_index = get_account_index(accounts_deactivated);
-				do {
-					new_account_index = get_account_index(accounts_deactivated);
-				} 
-				while (new_account_index == account_index);
-				account_index = new_account_index;
-				account = input.account[account_index];
-				console.log(`Account is changed to "${account.username}", account number ${account_index}.`)
-				*/
+				account = input.account[account_index];			
 			}
 			while (!login_flag){		 
 				try{					
@@ -333,18 +303,6 @@ Apify.main(async () => {
 			await page.waitFor(Math.ceil(Math.random() * page_handle_max_wait_time))	
 
 			if (request.url.includes('/search/companies')) { // processing search page
-				//console.log(' --- processing a search page');	
-				// we need to wait till 				
-				// page.$('div.ResultsOverview-style-title-8d816f3f') !='Working on it...'
-				/*do {
-				    var result = await page.$('div.ResultsOverview-style-title-8d816f3f');
-					var companies_num = await (await result.getProperty('textContent')).jsonValue();
-					await page.waitFor( 0.5 );
-					console.log('\nWe wait 0.5 sec. since "Working on it" is present.');
-					console.log('companies_num:', companies_num);
-				} while ( companies_num.includes('Working on it'));
-				console.log('after loop, companies_num:', companies_num);	
-				*/
 				if (!request.url.includes('&page=')){ // if this is an initial request/base search page
 					try { // we gather the total companies number
 						let result = await page.$('div.ResultsOverview-style-title-8d816f3f');
@@ -417,16 +375,7 @@ Apify.main(async () => {
 				page_content='';
 				try {
 					//gather_info_into_dataset(page);
-					var company_name='';
-					/*try{
-						let login_sign = await page.$('span.myxing-profile-name');
-						if (login_sign){
-							console.log('Found  `span.myxing-profile-name` ...');
-							login_flag=true;
-						}
-					} catch(err){
-						console.log('Failure to find `span.myxing-profile-name`');
-					}*/
+					var company_name='';					
 					try { // get name of the company
 						var name_element = await page.$('h1.organization-name');
 						company_name = await (await name_element.getProperty('textContent')).jsonValue();
@@ -589,10 +538,9 @@ Apify.main(async () => {
 						}
 					}
 				} catch (e) { console.log(e); }				
-			}  			
-			// let's check login and get statistics every 5th time
-			//console.log('We check before leaving the page...');
-			
+			}  		
+		
+			// let's check login and get statistics before leaving the page			
 			if (page_content) {
 				login_check = await check_if_logged_in(page, page_content);			
 			} else {
@@ -607,10 +555,7 @@ Apify.main(async () => {
 				login_failure_counter += 1;
 			}	
 			var { totalRequestCount, handledRequestCount, pendingRequestCount } = await requestQueue.getInfo();
-			console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);
-			
-			//console.log();
-			//console.log();		
+			console.log('RequestQueue\n handled:', handledRequestCount, '\n pending:', pendingRequestCount, '\n total:'  , totalRequestCount);		
         },
         handleFailedRequestFunction: async ({ request }) => {
             console.log(`Request ${request.url} failed too many times`);
