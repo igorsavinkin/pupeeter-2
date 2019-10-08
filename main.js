@@ -139,7 +139,7 @@ Apify.main(async () => {
 	var page_content='';
 	var companies_for_base_search_page = 0;
 	var total_companies = 0;
-	var counter = 0; # counts total pages that crawler handled at a run	
+	var counter = 0; // counts total pages that crawler handled at a run	
 	var push_data = true;
 	var login_failure_counter = 0;
 	
